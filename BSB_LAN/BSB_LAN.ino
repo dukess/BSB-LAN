@@ -970,7 +970,7 @@ uint8_t recognizeVirtualFunctionGroup(float nr) {
   else if (nr >= (float)BSP_FLOAT && nr < (float)BSP_FLOAT + numCustomFloats) {return 6;} //20700 - 20799
   else if (nr >= (float)BSP_LONG && nr < (float)BSP_LONG + numCustomLongs) {return 7;} //20800 - 20899
 #if defined(BLE_SENSORS) && defined(ESP32)
-  else if (nr >= BSP_BLE && nr < BSP_BLE + BLESensors_num_of_sensors) {return 9;} //20900 - 21099
+  else if (nr >= (float)BSP_BLE && nr < (float)BSP_BLE + BLESensors_num_of_sensors) {return 9;} //20900 - 21099
 #endif
   return 0;
 }
@@ -1058,9 +1058,9 @@ int findLine(float line)
       }
       case 9: {
 #if defined(BLE_SENSORS) && defined(ESP32)
-        if ((int)roundf(line - BSP_BLE) < BLESensors_num_of_sensors) { //
+        if ((int)roundf(line - (float)BSP_BLE) < BLESensors_num_of_sensors) { //
           float intpart;
-          line = BSP_BLE + modf(line, &intpart);
+          line = (float)BSP_BLE + modf(line, &intpart);
         } else {
           return -1;
         }
@@ -1935,6 +1935,14 @@ void generateConfigPage(void) {
   #endif
   #if defined(BLE_SENSORS) && defined(ESP32)
   #ifdef ANY_MODULE_COMPILED
+  ", "
+  #else
+  #define ANY_MODULE_COMPILED
+  #endif
+  "BLE_SENSORS"
+  #endif
+  #if defined(BLE_SENSORS) && defined(ESP32)
+  #if defined (ANY_MODULE_COMPILED)
   ", "
   #else
   #define ANY_MODULE_COMPILED
@@ -3868,6 +3876,23 @@ void queryVirtualPrognr(float line, int table_line) {
         case 6: decodedTelegram.error = 261; undefinedValueToBuffer(decodedTelegram.value); break;
       }
       return;
+      break;
+    }
+    case 9: {
+#if defined(BLE_SENSORS) && defined(ESP32)
+      size_t log_sensor = (int)roundf(line - BSP_BLE);
+      uint8_t selector = ((int)roundf((line - BSP_BLE) * 10)) % 10;
+      if(!BLESensors_statusIsCorrect(log_sensor) && selector != 0) selector = 5; //Sensor timeout
+      switch (selector) {
+        case 0: bin2hex(decodedTelegram.value, ((byte *)BLE_sensors_macs) + log_sensor * sizeof(mac), sizeof(mac), ':'); break;
+        case 1: _printFIXPOINT(decodedTelegram.value, BLESensors_readTemp(log_sensor), 2); break;
+        case 2: _printFIXPOINT(decodedTelegram.value, BLESensors_readHumidity(log_sensor), 2); break;
+        case 3: decodedTelegram.error = 261; undefinedValueToBuffer(decodedTelegram.value); break; //_printFIXPOINT(decodedTelegram.value, BLESensors_readPressure(log_sensor), 2); break;
+        case 4: _printFIXPOINT(decodedTelegram.value, BLESensors_readVbat(log_sensor), 3); break;
+        case 5: decodedTelegram.error = 261; undefinedValueToBuffer(decodedTelegram.value); break;
+      }
+      return;
+#endif
       break;
     }
     case 9: {
