@@ -81,6 +81,10 @@ typedef enum{
   CF_LOGMODE, // Size: 1 byte. Bitwise value. Logging: 0 - disabled, 1 - SD card logging, 2 - send to MQTT, 4 - send to UDP
 // Version 11 (ESP32 energy save mode)
   CF_ESP32_ENERGY_SAVE,
+// Version 12 (Xiaomi BLE sensors)
+  CF_ENABLE_BLE, // Size: 1 byte.
+  CF_BLE_SENSORS_MACS, // Size: 20 x 6 bytes. (List of BLE devices MACs)
+
 //Maximim version can be 254 (0xFE). In other case initConfigTable() will locked in infinite loop
 //Maximum options count can be 253 for same reason (or must changing uint8_t type to uint16_t)
   CF_LAST_OPTION //Virtual option. Must be last in enum. Only for internal usage.
@@ -123,7 +127,8 @@ typedef enum {
   CCAT_LOGGING,
   CCAT_24HAVG,
   CCAT_RGT_EMUL,
-  CCAT_BMEBUS
+  CCAT_BMEBUS,
+  CCAT_BLEBUS
 } ccat_params;
 
 
@@ -159,7 +164,8 @@ PROGMEM_LATE const category_list_struct catalist[]={
   {CCAT_LOGGING,        CAT_LOGGING_TXT},
   {CCAT_24HAVG,         CAT_24HAVG_TXT},
   {CCAT_RGT_EMUL,       CAT_RGT_EMUL_TXT},
-  {CCAT_BMEBUS,         CAT_BMEBUS_TXT}
+  {CCAT_BMEBUS,         CAT_BMEBUS_TXT},
+  {CCAT_BLEBUS,         CAT_BLEBUS_TXT}
 };
 
 PROGMEM_LATE const configuration_struct config[]={
@@ -219,6 +225,10 @@ PROGMEM_LATE const configuration_struct config[]={
 //bus and pins: DHT_Pins
   {CF_DHTBUS,           2, CCAT_DHTBUS,   CPI_TEXT,      CDT_DHTBUS,         OPT_FL_ADVANCED, CF_PINS_TXT, sizeof(DHT_Pins)}, //immediately apply
   {CF_BMEBUS,           6, CCAT_BMEBUS,   CPI_TEXT,      CDT_BYTE,           OPT_FL_ADVANCED, CF_NUM_TXT, sizeof(BME_Sensors)}, //need reboot
+#if defined(BLE_SENSORS) && defined(ESP32)
+  {CF_ENABLE_BLE,       11,CCAT_BLEBUS,   CPI_SWITCH,    CDT_BYTE,           OPT_FL_ADVANCED, CF_ENABLE_BLE_TXT, sizeof(EnableBLE)}, //need reboot
+  {CF_BLE_SENSORS_MACS, 11,CCAT_BLEBUS,   CPI_TEXT,      CDT_MAC,            OPT_FL_ADVANCED, CF_BLE_SENSORS_MACS_TXT, sizeof(BLE_sensors_macs)}, //need reboot
+#endif
   {CF_TWW_PUSH_PIN_ID,  5, CCAT_RGT_EMUL, CPI_TEXT,      CDT_BYTE,           OPT_FL_ADVANCED, CF_TWW_PUSH_PIN_TXT, sizeof(button_on_pin[0])},//need reboot
   {CF_RGT1_SENSOR_ID,   5, CCAT_RGT_EMUL, CPI_TEXT,      CDT_PROGNRLIST,     OPT_FL_ADVANCED, CF_RGT1_SENSOR_TXT, sizeof(rgte_sensorid)/3},//immediately apply
   {CF_RGT1_PRES_PIN_ID, 5, CCAT_RGT_EMUL, CPI_TEXT,      CDT_BYTE,           OPT_FL_ADVANCED, CF_RGT1_PRES_PIN_TXT, sizeof(button_on_pin[0])},//need reboot

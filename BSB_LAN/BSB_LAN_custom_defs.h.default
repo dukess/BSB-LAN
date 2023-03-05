@@ -40,7 +40,7 @@ const float ENUM_CAT_NR[] PROGMEM_LATEST = {
   13000, 13999,
   14000, 14999,
   15000, 15099,
-  20000, 20899 //Virtual category for durations, averages, One Wire, DHT22, MAX! sensors, custom floats and longs
+  20000, 21099 //Virtual category for durations, averages, One Wire, DHT22, MAX! sensors, custom floats and longs
 };
 
  /* Menue Strings */
