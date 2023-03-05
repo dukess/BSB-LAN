@@ -126,6 +126,12 @@ uint8_t DHT_Pins[10] = {0};
 #define BME280
 byte BME_Sensors = 0; //Define number of BME280 sensors
 
+#define BLE_SENSORS
+#if defined(ESP32) && defined(BLE_SENSORS)
+byte EnableBLE = 1;
+byte BLE_sensors_macs[20][6] = {{ 0xa4, 0xc1, 0x38, 0x1c, 0x00, 0xe6 },{ 0xa4, 0xc1, 0x38, 0x6b, 0x49, 0xd9}};
+#endif
+
 // Compile module for calculation 24h averages for selected programs
 #define AVERAGES
 // Create 24h averages from these parameters and save data into averages.txt on SD-card.

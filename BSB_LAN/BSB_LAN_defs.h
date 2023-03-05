@@ -210,7 +210,8 @@ typedef enum { //BSP = base sensors program
   BSP_MAX = 20500,    // MAX! sensor
   BSP_FLOAT = 20700,    // custom_floats
   BSP_LONG = 20800,    // custom_longs
-  BSP_END = 20900,    // end of sensors category
+  BSP_BLE = 20900,    // Bluetooth Low Energy sensors
+  BSP_END = 21100,    // end of sensors category
 } dt_sensors_base_prog_t;
 
 //WEBCONFIG
@@ -279,6 +280,8 @@ const char CF_RX_PIN_TXT[] PROGMEM = CF_RX_PIN_TEXT;
 const char CF_TX_PIN_TXT[] PROGMEM = CF_TX_PIN_TEXT;
 const char CF_CONFIG_LEVEL_TXT[] PROGMEM = CF_CONFIG_LEVEL_TEXT;
 const char CF_ENERGY_SAVE_TXT[] PROGMEM = CF_ENERGY_SAVE_TEXT;
+const char CF_ENABLE_BLE_TXT[] PROGMEM = CF_ENABLE_BLE_TEXT;
+const char CF_BLE_SENSORS_MACS_TXT[] PROGMEM = CF_BLE_SENSORS_MACS_TEXT;
 
 const char CAT_GENERAL_TXT[] PROGMEM = CAT_GENERAL_TEXT;
 const char CAT_IPV4_TXT[] PROGMEM = CAT_IPV4_TEXT;
@@ -293,6 +296,7 @@ const char CAT_LOGGING_TXT[] PROGMEM = CAT_LOGGING_TEXT;
 const char CAT_24HAVG_TXT[] PROGMEM = CAT_24HAVG_TEXT;
 const char CAT_RGT_EMUL_TXT[] PROGMEM = CAT_RGT_EMUL_TEXT;
 const char CAT_BMEBUS_TXT[] PROGMEM = CAT_BMEBUS_TEXT;
+const char CAT_BLEBUS_TXT[] PROGMEM = CAT_BLEBUS_TEXT;
 
 const char STR_TEXT_FSP[] PROGMEM = MENU_TEXT_FSP;
 const char STR_TEXT_SNS[] PROGMEM = MENU_TEXT_SNS;
@@ -694,6 +698,7 @@ typedef enum{
   VT_LONG,              //Virtual: custom_long
   VT_PRESSURE_HPA,      //Virtual: Pressure [hPa]
   VT_ALTITUDE,          //Virtual: Altitude [m]
+  VT_VBATT,             //Virtual: Battery voltage [V.vvv]
   VT_UNKNOWN
 }vt_type_t;
 
@@ -860,6 +865,7 @@ PROGMEM_LATE const units optbl[]={
 {VT_LONG,             1.0,    0, 0, DT_VALS, 0,  U_NONE, sizeof(U_NONE), STR_LONG},
 {VT_PRESSURE_HPA,     1.0,    0, 0, DT_VALS, 2,  U_ATM_PRESSURE, sizeof(U_ATM_PRESSURE), STR_ATM_PRESSURE},
 {VT_ALTITUDE,         1.0,    0, 0, DT_VALS, 0,  U_ALTITUDE, sizeof(U_ALTITUDE), STR_ALTITUDE},
+{VT_VBATT,            1.0,    0, 0, DT_VALS, 3,  U_VOLT, sizeof(U_VOLT), STR_VOLTAGE},
 {VT_UNKNOWN,          1.0,    0, 0, DT_VALS, 1,  U_NONE, sizeof(U_NONE), STR_UNKNOWN},
 };
 
@@ -977,7 +983,13 @@ const char STR20502[] PROGMEM = STR20502_TEXT;
 const char STR20503[] PROGMEM = STR20503_TEXT;
 const char STR20700[] PROGMEM = STR20700_TEXT;
 const char STR20800[] PROGMEM = STR20800_TEXT;
-
+#if defined(BLE_SENSORS) && defined(ESP32)
+const char STR20900[] PROGMEM = STR20900_TEXT;
+const char STR20901[] PROGMEM = STR20901_TEXT;
+const char STR20902[] PROGMEM = STR20902_TEXT;
+const char STR20903[] PROGMEM = STR20903_TEXT;
+const char STR20904[] PROGMEM = STR20904_TEXT;
+#endif
 const char STR65535[] PROGMEM = "";
 // A catch-all description string for unrecognised command codes
 const char STR99999[] PROGMEM = STR99999_TEXT;
@@ -1330,7 +1342,13 @@ const char ENUM15046[] PROGMEM_LATEST = {
 {CMD_UNKNOWN, VT_PERCENT_WORD1, BSP_MAX+0.3, STR20503, 0,                     NULL,         FL_RONLY, DEV_ALL},     // MAX! sensor valve opening (in percent)
 {CMD_UNKNOWN, VT_FLOAT,         BSP_FLOAT, STR20700, 0,                    NULL,         DEFAULT_FLAG, DEV_ALL}, // custom_floats
 {CMD_UNKNOWN, VT_LONG,          BSP_LONG, STR20800, 0,                    NULL,         DEFAULT_FLAG, DEV_ALL}, // custom_longs
-
+#if defined(BLE_SENSORS) && defined(ESP32)
+{CMD_UNKNOWN, VT_STRING,        BSP_BLE+0.0, STR20900, 0,                     NULL,         FL_RONLY, DEV_ALL},     // BLE sensor MAC address
+{CMD_UNKNOWN, VT_TEMP,          BSP_BLE+0.1, STR20901, 0,                     NULL,         FL_RONLY, DEV_ALL},     // BLE sensor Current temperature
+{CMD_UNKNOWN, VT_PERCENT_WORD1, BSP_BLE+0.2, STR20902, 0,                     NULL,         FL_RONLY, DEV_ALL},     // BLE sensor Humidity
+{CMD_UNKNOWN, VT_PRESSURE_HPA,  BSP_BLE+0.3, STR20903, 0,                     NULL,         FL_RONLY, DEV_ALL},     // BLE sensor Pressure [hPa]. For future use
+{CMD_UNKNOWN, VT_VBATT,         BSP_BLE+0.4, STR20904, 0,                     NULL,         FL_RONLY, DEV_ALL},     // BLE sensor battery voltage [V]
+#endif
 //{CMD_END,     VT_UNKNOWN,       65535, "",       0,                    NULL,         DEFAULT_FLAG, DEV_ALL}
 
   //Prognr 65526 - 65534 is a dirty trick for reducing enumerations addresses to the same type

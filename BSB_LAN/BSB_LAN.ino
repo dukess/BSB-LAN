@@ -65,7 +65,7 @@
  *       3.0   - 16.03.2023
  *       3.1   - 04.06.2023
  *       3.2   - 15.11.2023
- *       3.3   - 
+ *       3.3   -
  *
  * Changelog:
  *       version 3.3
@@ -528,7 +528,7 @@ typedef struct {
 
 #define REQUIRED_CONFIG_VERSION 33
 #if CONFIG_VERSION < REQUIRED_CONFIG_VERSION
-  #error "Your BSB_LAN_config.h is not up to date! Please use the most recent BSB_LAN_config.h.default, rename it to BSB_LAN_config.h and make the necessary changes to this new one." 
+  #error "Your BSB_LAN_config.h is not up to date! Please use the most recent BSB_LAN_config.h.default, rename it to BSB_LAN_config.h and make the necessary changes to this new one."
 #endif
 
 #define EEPROM_SIZE 0x1000
@@ -1010,6 +1010,10 @@ int char2int(char input)
 /* Functions for management "Ring" output buffer */
 #include "include/print2webclient.h"
 
+#if defined(BLE_SENSORS) && defined(ESP32)
+#include "include/BLESensors.h"
+#endif
+
 // This function will extract parameter number and destination address from string like xxxxx[!yyy],[xxxxx[!yyy][,...]]
 parameter parsingStringToParameter(char *data){
   parameter param;
@@ -1300,6 +1304,9 @@ uint8_t recognizeVirtualFunctionGroup(float nr) {
   else if (nr >= BSP_MAX && nr < BSP_MAX + MAX_CUL_DEVICES) {return 5;} //20500 - 20699
   else if (nr >= BSP_FLOAT && nr < BSP_FLOAT + numCustomFloats) {return 6;} //20700 - 20799
   else if (nr >= BSP_LONG && nr < BSP_LONG + numCustomLongs) {return 7;} //20800 - 20899
+#if defined(BLE_SENSORS) && defined(ESP32)
+  else if (nr >= BSP_BLE && nr < BSP_BLE + BLESensors_num_of_sensors) {return 9;} //20900 - 21099
+#endif
   return 0;
 }
 
@@ -1392,7 +1399,20 @@ int findLine(float line
 #endif
         break;
       }
-      default: return -1;
+      case 9: {
+#if defined(BLE_SENSORS) && defined(ESP32)
+        if ((int)roundf(line - BSP_BLE) < BLESensors_num_of_sensors) { //
+          float intpart;
+          line = BSP_BLE + modf(line, &intpart);
+        } else {
+          return -1;
+        }
+#else
+        return -1;
+#endif
+        break;
+      }
+    default: return -1;
     }
   }
 
@@ -1701,6 +1721,7 @@ void loadPrognrElementsFromTable(float nr, int i) {
       case 6: decodedTelegram.sensorid = nr - BSP_FLOAT + 1; break;
       case 7: decodedTelegram.sensorid = nr - BSP_LONG + 1; break;
       case 8: decodedTelegram.sensorid = nr - BSP_BME280 + 1; break;
+      case 9: decodedTelegram.sensorid = nr - BSP_BLE + 1; break;
     }
   }
 }
@@ -2490,6 +2511,14 @@ void generateConfigPage(void) {
   #endif
   "WIFI"
   #endif
+  #if defined(BLE_SENSORS) && defined(ESP32)
+  #if defined (ANY_MODULE_COMPILED)
+  ", "
+  #else
+  #define ANY_MODULE_COMPILED
+  #endif
+  "BLE_SENSORS"
+  #endif
 
   #if !defined (ANY_MODULE_COMPILED)
   "NONE"
@@ -2560,6 +2589,15 @@ if (logTelegram) {
 #endif
   printToWebClient(PSTR("<BR>\r\n"));
 }
+
+#if defined(BLE_SENSORS) && defined(ESP32)
+void startBLEScan(){
+  printFmtToDebug(PSTR("Initial BLE scan (%d sec)\r\n"), BLESensors_scanTime);
+  BLESensors_init();
+  BLESensors_scan_sensors(false, true); //initial BLE scan
+  BLESensors_scan_sensors(true, false); //background passive BLE scan
+}
+#endif
 
 #if defined(WEBCONFIG) || defined(JSONCONFIG)
 uint8_t takeNewConfigValueFromUI_andWriteToRAM(int option_id, char *buf) {
@@ -2764,7 +2802,23 @@ bool SaveConfigFromRAMtoEEPROM() {
           mqtt_disconnect();
           break;
 #endif
-        default: break;
+#if defined(BLE_SENSORS) && defined(ESP32)
+        case CF_BLE_SENSORS_MACS:
+/*          if (EnableBLE){
+            BLESensors_destroy();
+            startBLEScan();
+          }
+          break;*/
+        case CF_ENABLE_BLE:
+          needReboot = true;
+/*        if (EnableBLE){
+          startBLEScan();
+        } else {
+          BLESensors_destroy();
+        } */
+        break;
+#endif
+      default: break;
       }
     }
   }
@@ -4437,6 +4491,23 @@ void queryVirtualPrognr(float line, int table_line) {
         case 4: _printFIXPOINT(decodedTelegram.value, bme[log_sensor].readAltitudeMeter(), 2); break;
         case 5: {float temp = bme[log_sensor].readTempC(); _printFIXPOINT(decodedTelegram.value, (216.7*(bme[log_sensor].readHumidity()/100.0*6.112*exp(17.62*temp/(243.12+temp))/(273.15+temp))), 2);} break;
         case 6: decodedTelegram.error = 261; undefinedValueToBuffer(decodedTelegram.value); break;
+      }
+      return;
+#endif
+      break;
+    }
+    case 9: {
+#if defined(BLE_SENSORS) && defined(ESP32)
+      size_t log_sensor = (int)roundf(line - BSP_BLE);
+      uint8_t selector = ((int)roundf((line - BSP_BLE) * 10)) % 10;
+      if(!BLESensors_statusIsCorrect(log_sensor) && selector != 0) selector = 5; //Sensor timeout
+      switch (selector) {
+        case 0: bin2hex(decodedTelegram.value, ((byte *)BLE_sensors_macs) + log_sensor * sizeof(mac), sizeof(mac), ':'); break;
+        case 1: _printFIXPOINT(decodedTelegram.value, BLESensors_readTemp(log_sensor), 2); break;
+        case 2: _printFIXPOINT(decodedTelegram.value, BLESensors_readHumidity(log_sensor), 2); break;
+        case 3: decodedTelegram.error = 261; undefinedValueToBuffer(decodedTelegram.value); break; //_printFIXPOINT(decodedTelegram.value, BLESensors_readPressure(log_sensor), 2); break;
+        case 4: _printFIXPOINT(decodedTelegram.value, BLESensors_readVbat(log_sensor), 3); break;
+        case 5: decodedTelegram.error = 261; undefinedValueToBuffer(decodedTelegram.value); break;
       }
       return;
 #endif
@@ -6703,6 +6774,11 @@ next_parameter:
               //no break here.
             case 'O': {//Just print current configuration (for debug purposes)
               generateConfigPage();
+#if defined(BLE_SENSORS) && defined(ESP32)
+              if(EnableBLE) {
+                printListBLEDevicesAround();
+              }
+#endif
               generateWebConfigPage(true);
               if (!(httpflags & HTTP_FRAG)) webPrintFooter();
               flushToWebClient();
@@ -7702,7 +7778,7 @@ void printWifiStatus()
     // print your WiFi shield's IP address
     IPAddress t = WiFi.localIP();
     printFmtToDebug(PSTR("IP Address: %d.%d.%d.%d\r\n"), t[0], t[1], t[2], t[3]);
-  
+
     // print the received signal strength
     long rssi = WiFi.RSSI();
     printFmtToDebug(PSTR("Signal strength (RSSI): %l dBm\r\n"), rssi);
@@ -7856,6 +7932,10 @@ void setup() {
 #endif
 #if defined(JSONCONFIG) || defined(WEBCONFIG)
   registerConfigVariable(CF_CONFIG_LEVEL, (byte *)&config_level);
+#if defined(BLE_SENSORS) && defined(ESP32)
+  registerConfigVariable(CF_ENABLE_BLE, (byte *)&EnableBLE);
+  registerConfigVariable(CF_BLE_SENSORS_MACS, (byte *)BLE_sensors_macs);
+#endif
 #endif
 
   readFromEEPROM(CF_PPS_VALUES);
@@ -8493,11 +8573,18 @@ void setup() {
   }
 #endif
 
+#if defined(BLE_SENSORS) && defined(ESP32)
+  if(EnableBLE) {
+    startBLEScan();
+  }
+#endif
+
 #if defined LOGGER || defined WEBSERVER
   #if !defined(ESP32)
   FsDateTime::setCallback(dateTime);
   #endif
 #endif
+
   printlnToDebug(PSTR("Setup complete"));
   debug_mode = save_debug_mode; //restore actual debug mode
 }
