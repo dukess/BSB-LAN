@@ -210,7 +210,8 @@ typedef enum { //BSP = base sensors program
   BSP_MAX = 20500,    // MAX! sensor
   BSP_FLOAT = 20700,    // custom_floats
   BSP_LONG = 20800,    // custom_longs
-  BSP_END = 20900,    // end of sensors category
+  BSP_BLE = 20900,    // Bluetooth Low Energy sensors
+  BSP_END = 21100,    // end of sensors category
 } dt_sensors_base_prog_t;
 
 //WEBCONFIG
@@ -282,6 +283,10 @@ const char STR_YES[] = MENU_TEXT_YES;
 const char STR_NO[] = MENU_TEXT_NO;
 const char STR_ON[] = MENU_TEXT_ON;
 const char STR_OFF[] = MENU_TEXT_OFF;
+
+const char CAT_BLEBUS_TXT[] = CAT_BLEBUS_TEXT;
+const char CF_ENABLE_BLE_TXT[] = CF_ENABLE_BLE_TEXT;
+const char CF_BLE_SENSORS_MACS_TXT[] = CF_BLE_SENSORS_MACS_TEXT;
 
 typedef enum {
   DT_VALS,    // plain value
@@ -695,6 +700,7 @@ typedef enum{
   VT_LONG,              //Virtual: custom_long
   VT_PRESSURE_HPA,      //Virtual: Pressure [hPa]
   VT_ALTITUDE,          //Virtual: Altitude [m]
+  VT_VBATT,             //Virtual: Battery voltage [V.vvv]
   VT_UNKNOWN
 }vt_type_t;
 
@@ -868,6 +874,7 @@ const units optbl[]={
 {VT_LONG,             1.0,    0, 0, DT_VALS, 0,  U_NONE, sizeof(U_NONE), STR_LONG},
 {VT_PRESSURE_HPA,     1.0,    0, 0, DT_VALS, 2,  U_ATM_PRESSURE, sizeof(U_ATM_PRESSURE), STR_ATM_PRESSURE},
 {VT_ALTITUDE,         1.0,    0, 0, DT_VALS, 0,  U_ALTITUDE, sizeof(U_ALTITUDE), STR_ALTITUDE},
+{VT_VBATT,            1.0,    0, 0, DT_VALS, 3,  U_VOLT, sizeof(U_VOLT), STR_VOLTAGE},
 {VT_UNKNOWN,          1.0,    0, 0, DT_VALS, 1,  U_NONE, sizeof(U_NONE), STR_UNKNOWN},
 };
 
@@ -951,6 +958,13 @@ const char STR20503[] = STR20503_TEXT;
 const char STR20700[] = STR20700_TEXT;
 const char STR20800[] = STR20800_TEXT;
 
+#if defined(BLE_SENSORS) && defined(ESP32)
+const char STR20900[] = STR20900_TEXT;
+const char STR20901[] = STR20901_TEXT;
+const char STR20902[] = STR20902_TEXT;
+const char STR20903[] = STR20903_TEXT;
+const char STR20904[] = STR20904_TEXT;
+#endif
 const char STR65535[] = "";
 // A catch-all description string for unrecognised command codes
 const char STR99999[] = STR99999_TEXT;
@@ -1293,6 +1307,13 @@ const char ENUM15046[] = {
 {CMD_UNKNOWN, VT_FLOAT,         BSP_FLOAT,      STR20700, 0,                  NULL,         DEFAULT_FLAG, DEV_ALL}, // custom_floats
 {CMD_UNKNOWN, VT_LONG,          BSP_LONG,       STR20800, 0,                  NULL,         DEFAULT_FLAG, DEV_ALL}, // custom_longs
 
+#if defined(BLE_SENSORS) && defined(ESP32)
+{CMD_UNKNOWN, VT_STRING,        (float)BSP_BLE+0.0,    STR20900, 0,                  NULL,         FL_RONLY, DEV_ALL},     // BLE sensor MAC address
+{CMD_UNKNOWN, VT_TEMP,          (float)BSP_BLE+0.1,    STR20901, 0,                  NULL,         FL_RONLY, DEV_ALL},     // BLE sensor Current temperature
+{CMD_UNKNOWN, VT_PERCENT_WORD1, (float)BSP_BLE+0.2,    STR20902, 0,                  NULL,         FL_RONLY, DEV_ALL},     // BLE sensor Humidity
+{CMD_UNKNOWN, VT_PRESSURE_HPA,  (float)BSP_BLE+0.3,    STR20903, 0,                  NULL,         FL_RONLY, DEV_ALL},     // BLE sensor Pressure [hPa]. For future use
+{CMD_UNKNOWN, VT_VBATT,         (float)BSP_BLE+0.4,    STR20904, 0,                  NULL,         FL_RONLY, DEV_ALL},     // BLE sensor battery voltage [V]
+#endif
 //{CMD_END,     VT_UNKNOWN,       65535, "",       0,                    NULL,         DEFAULT_FLAG, DEV_ALL}
 
   //Prognr 65523 - 65534 is a dirty trick for reducing enumerations addresses to the same type

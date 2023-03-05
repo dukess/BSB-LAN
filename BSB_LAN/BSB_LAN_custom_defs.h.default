@@ -34,7 +34,7 @@ const float ENUM_CAT_NR[] = {
   8700, 9075,
   10000, 11999,
   15000, 15099,
-  20000, 20899 //Virtual category for durations, averages, One Wire, DHT22, MAX! sensors, custom floats and longs
+  20000, 21099 //Virtual category for durations, averages, One Wire, DHT22, MAX! sensors, custom floats and longs
 };
 
  /* Menue Strings */

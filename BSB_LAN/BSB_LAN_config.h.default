@@ -50,7 +50,7 @@ char mDNS_hostname[32] = "BSB-LAN";     // Advertises the hostname in the local 
  * Use pool.ntp.org if your BSB-LAN installation can access the internet.
  * Otherwise you may also use your router's address if it can act as a NTP server.
  * The default timezone "CET-1CEST,M3.5.0,M10.5.0/3" covers most Central European countries (GMT+1) and takes care of daylight saving.
- * Use "EET-2EEST,M3.5.0/3,M10.5.0/4" for Eastern European countries (GMT+2), or 
+ * Use "EET-2EEST,M3.5.0/3,M10.5.0/4" for Eastern European countries (GMT+2), or
  * use "WET0WEST,M3.5.0/1,M10.5.0" for Western European countries (GMT+0).
  * See here for a full list of timezones for places all over the world:
  * https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
@@ -131,6 +131,11 @@ uint8_t LogDestination = SDCARD;  // Possible logging devices: SDCARD (0) = SD c
 #define SD_CS 5
 //#define FORCE_SD_MMC_ON_NODEMCU   // enable this definement if you want to force using the SD_MMC library instead of SPI on an ESP32 NodeMCU
 
+#define BLE_SENSORS
+#if defined(ESP32) && defined(BLE_SENSORS)
+byte EnableBLE = 1;
+byte BLE_sensors_macs[20][6] = {{ 0xa4, 0xc1, 0x38, 0x1c, 0x00, 0xe6 },{ 0xa4, 0xc1, 0x38, 0x6b, 0x49, 0xd9}};
+#endif
 
 // Log "raw" bus telegrams. Data saved in journal.txt on SD-card.
 // Telegrams logged upon boot:
@@ -254,7 +259,7 @@ char max_device_list[20][11] = {               // list of MAX! wall/heating ther
 */
 bool enable_version_check = false;
 
-// Enable ESP32 over-the-air updates. 
+// Enable ESP32 over-the-air updates.
 // Pro: You don't need to physically connect your PC to the ESP32 in order to update BSB-LAN.
 // Contra: Someone who has access to your network and finds out about BSB-LAN's username and password can install their own software on the ESP32.
 boolean enable_ota_update = false;

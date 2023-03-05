@@ -10,9 +10,9 @@
  *         (based on the code and work from many other developers. Many thanks!)
  *         Special thanks to Ulf Diekmann for maintaining the manual up to version 3.3 and to Sergey Dukachev for lots of helpful code optimizations and restructurings as well as providing a profound Russian localization since version 0.43
  *
- * 
+ *
  * ChangeLog has moved to separate file docs/CHANGELOG.md
- * 
+ *
  */
 
 #if defined(__AVR__)
@@ -109,7 +109,7 @@
 #define REMOVE 0
 #define CREATE 1
 
-// These are configuration options that are set in main code in order not to confuse ordinary users. 
+// These are configuration options that are set in main code in order not to confuse ordinary users.
 // If you really feel you need to change them, undefine them in BSB_LAN_config.h and then set them to your desired value.
 // e.g.:
 // #undef UDP_LOG_PORT
@@ -169,7 +169,7 @@ uint32_t printKat(uint8_t cat, int print_val, boolean debug_output=true);
 
 #define REQUIRED_CONFIG_VERSION 39
 #if CONFIG_VERSION < REQUIRED_CONFIG_VERSION
-  #error "Your BSB_LAN_config.h is not up to date! Please use the most recent BSB_LAN_config.h.default, rename it to BSB_LAN_config.h and make the necessary changes to this new one." 
+  #error "Your BSB_LAN_config.h is not up to date! Please use the most recent BSB_LAN_config.h.default, rename it to BSB_LAN_config.h and make the necessary changes to this new one."
 #endif
 
 
@@ -671,6 +671,10 @@ int char2int(char input)
 /* Functions for management "Ring" output buffer */
 #include "include/print2webclient.h"
 
+#if defined(BLE_SENSORS) && defined(ESP32)
+#include "include/BLESensors.h"
+#endif
+
 // This function will extract parameter number and destination address from string like xxxxx[!yyy],[xxxxx[!yyy][,...]]
 parameter parsingStringToParameter(char *data){
   parameter param;
@@ -965,6 +969,9 @@ uint8_t recognizeVirtualFunctionGroup(float nr) {
   else if (nr >= (float)BSP_MAX && nr < (float)BSP_MAX + MAX_CUL_DEVICES) {return 5;} //20500 - 20699
   else if (nr >= (float)BSP_FLOAT && nr < (float)BSP_FLOAT + numCustomFloats) {return 6;} //20700 - 20799
   else if (nr >= (float)BSP_LONG && nr < (float)BSP_LONG + numCustomLongs) {return 7;} //20800 - 20899
+#if defined(BLE_SENSORS) && defined(ESP32)
+  else if (nr >= BSP_BLE && nr < BSP_BLE + BLESensors_num_of_sensors) {return 9;} //20900 - 21099
+#endif
   return 0;
 }
 
@@ -1049,7 +1056,20 @@ int findLine(float line)
         }
         break;
       }
-      default: return -1;
+      case 9: {
+#if defined(BLE_SENSORS) && defined(ESP32)
+        if ((int)roundf(line - BSP_BLE) < BLESensors_num_of_sensors) { //
+          float intpart;
+          line = BSP_BLE + modf(line, &intpart);
+        } else {
+          return -1;
+        }
+#else
+        return -1;
+#endif
+        break;
+      }
+    default: return -1;
     }
   }
 
@@ -1344,6 +1364,7 @@ void loadPrognrElementsFromTable(float nr, int i) {
       case 6: decodedTelegram.sensorid = nr - (float)BSP_FLOAT + 1; break;
       case 7: decodedTelegram.sensorid = nr - (float)BSP_LONG + 1; break;
       case 8: decodedTelegram.sensorid = nr - (float)BSP_BME280 + 1; break;
+      case 9: decodedTelegram.sensorid = nr - (float)BSP_BLE + 1; break;
     }
   }
 }
@@ -1912,6 +1933,14 @@ void generateConfigPage(void) {
   #endif
   "WIFISPI"
   #endif
+  #if defined(BLE_SENSORS) && defined(ESP32)
+  #ifdef ANY_MODULE_COMPILED
+  ", "
+  #else
+  #define ANY_MODULE_COMPILED
+  #endif
+  "BLE_SENSORS"
+  #endif
 
   #if !defined (ANY_MODULE_COMPILED)
   "NONE"
@@ -1930,6 +1959,15 @@ void generateConfigPage(void) {
 
   printToWebClient("<BR>\r\n");
 }
+
+#if defined(BLE_SENSORS) && defined(ESP32)
+void startBLEScan(){
+  printFmtToDebug(PSTR("Initial BLE scan (%d sec)\r\n"), BLESensors_scanTime);
+  BLESensors_init();
+  BLESensors_scan_sensors(false, true); //initial BLE scan
+  BLESensors_scan_sensors(true, false); //background passive BLE scan
+}
+#endif
 
 uint8_t takeNewConfigValueFromUI_andWriteToRAM(int option_id, char *buf) {
   bool found = false;
@@ -2130,7 +2168,23 @@ bool SaveConfigFromRAMtoEEPROM() {
         case CF_MQTT_SERVER:
           mqtt_disconnect();
           break;
-        default: break;
+#if defined(BLE_SENSORS) && defined(ESP32)
+        case CF_BLE_SENSORS_MACS:
+/*          if (EnableBLE){
+            BLESensors_destroy();
+            startBLEScan();
+          }
+          break;*/
+        case CF_ENABLE_BLE:
+          needReboot = true;
+/*        if (EnableBLE){
+          startBLEScan();
+        } else {
+          BLESensors_destroy();
+        } */
+        break;
+#endif
+      default: break;
       }
     }
   }
@@ -2374,8 +2428,8 @@ void generateWebConfigPage(bool printOnly) {
     } else {
       printFmtToWebClient("<output id='option_%d' name='option_%d'>\r\n", cfg.id + 1, cfg.id + 1);
     }
-  
-  
+
+
     switch (cfg.var_type) {
       case CDT_VOID: break;
       case CDT_BYTE:
@@ -2456,7 +2510,7 @@ void generateWebConfigPage(bool printOnly) {
         break;
       default: break;
     }
-  
+
   //Closing tag
     if(!printOnly){
       switch (cfg.input_type) {
@@ -3816,6 +3870,23 @@ void queryVirtualPrognr(float line, int table_line) {
       return;
       break;
     }
+    case 9: {
+#if defined(BLE_SENSORS) && defined(ESP32)
+      size_t log_sensor = (int)roundf(line - BSP_BLE);
+      uint8_t selector = ((int)roundf((line - BSP_BLE) * 10)) % 10;
+      if(!BLESensors_statusIsCorrect(log_sensor) && selector != 0) selector = 5; //Sensor timeout
+      switch (selector) {
+        case 0: bin2hex(decodedTelegram.value, ((byte *)BLE_sensors_macs) + log_sensor * sizeof(mac), sizeof(mac), ':'); break;
+        case 1: _printFIXPOINT(decodedTelegram.value, BLESensors_readTemp(log_sensor), 2); break;
+        case 2: _printFIXPOINT(decodedTelegram.value, BLESensors_readHumidity(log_sensor), 2); break;
+        case 3: decodedTelegram.error = 261; undefinedValueToBuffer(decodedTelegram.value); break; //_printFIXPOINT(decodedTelegram.value, BLESensors_readPressure(log_sensor), 2); break;
+        case 4: _printFIXPOINT(decodedTelegram.value, BLESensors_readVbat(log_sensor), 3); break;
+        case 5: decodedTelegram.error = 261; undefinedValueToBuffer(decodedTelegram.value); break;
+      }
+      return;
+#endif
+      break;
+    }
   }
   decodedTelegram.error = 7;
   decodedTelegram.msg_type = TYPE_ERR;
@@ -4033,7 +4104,7 @@ void GetDevId() {
           bool found = false;
           for (uint i=0;i<sizeof(dev_array);i++) {
             if (dev_array[i] == 0) break;
-            if (dev_array[i] == cat_dev) found = true; 
+            if (dev_array[i] == cat_dev) found = true;
           }
           if (found == false) {
             dev_array[arr_counter] = cat_dev;
@@ -4054,7 +4125,7 @@ void GetDevId() {
         case BUS_BSB: bus->setBusType(BUS_BSB, bus->getBusAddr(), 0x7F); break;
         case BUS_LPB: bus->setBusType(BUS_LPB, bus->getBusAddr(), 0xFF); break;
       }
-    
+
       if (bus->Send(TYPE_QINF, 0x053D0064, msg, tx_msg, NULL, 0, false) == BUS_OK) {
         printTelegram(tx_msg, -1);
         unsigned long startquery = millis();
@@ -4090,7 +4161,7 @@ void GetDevId() {
             printTelegram(tx_msg, -1);
             printTelegram(msg, -1);
             memcpy(dev_lookup[i].name, &msg[bus->getPl_start()], 17);
-          } 
+          }
         }
         printlnToDebug("Bus devices found:");
         for (int i=0;i<(int)sizeof(dev_lookup)/(int)sizeof(dev_lookup[0]);i++) {
@@ -4529,7 +4600,7 @@ void loop() {
           {IPAddress t = Ethernet.localIP();
           printFmtToDebug("%d.%d.%d.%d\r\n", t[0], t[1], t[2], t[3]);}
         break;
-  
+
         default:
           //nothing happened
           break;
@@ -5083,7 +5154,7 @@ void loop() {
               case VT_BIT:
                 listEnumValues(decodedTelegram.enumstr, decodedTelegram.enumstr_len, NULL, " - ", NULL, "<br>\r\n", NULL, 0, PRINT_VALUE|PRINT_DESCRIPTION|PRINT_VALUE_FIRST);
                 break;
-              default: 
+              default:
                 printToWebClient(MENU_TEXT_ER6);
                 break;
             }
@@ -5842,7 +5913,7 @@ next_parameter:
                         cat_dev_id = dev_lookup[x].dev_id;
                         cat_dev_name = dev_lookup[x].name;
                         break;
-                      } 
+                      }
                     }
 /*
                     if (cat*2+2 < sizeof(ENUM_CAT_NR)/sizeof(*ENUM_CAT_NR)) { // only perform category boundary check if there is a higher category present
@@ -6207,7 +6278,7 @@ next_parameter:
             case 'I': {//Parse HTTP form and implement changes
               applyingConfig();
               generateWebConfigPage(false);
-              generateConfigPage(); 
+              generateConfigPage();
               UpdateMaxDeviceList(); //Update list MAX! devices
               if (!(httpflags & HTTP_FRAG)) webPrintFooter();
               flushToWebClient();
@@ -6219,6 +6290,11 @@ next_parameter:
               //no break here.
             case 'O': {//Just print current configuration (for debug purposes)
               generateConfigPage();
+#if defined(BLE_SENSORS) && defined(ESP32)
+              if(EnableBLE) {
+                printListBLEDevicesAround();
+              }
+#endif
               generateWebConfigPage(true);
               if (!(httpflags & HTTP_FRAG)) webPrintFooter();
               flushToWebClient();
@@ -6876,7 +6952,7 @@ next_parameter:
         char max_id[sizeof(max_device_list[0])] = { 0 };
         bool known_addr = false;
         bool known_eeprom = false;
-  
+
         strncpy(max_hex_str, outBuf+7, 2);
         max_hex_str[2]='\0';
         uint8_t max_msg_type = (uint8_t)strtoul(max_hex_str, NULL, 16);
@@ -6901,7 +6977,7 @@ next_parameter:
           printFmtToDebug("Message from unpaired MAX device address %08lX.\r\n", max_addr);
           if (verbose == DEVELOPER_DEBUG) printFmtToDebug("Raw message: %s\r\n", outBuf);
         }
-  
+
         if (max_msg_type == 0x00) {     // Device info after pressing pairing button
           for (int x=0;x<10;x++) {
             strncpy(max_hex_str, outBuf+29+(x*2), 2);
@@ -6910,7 +6986,7 @@ next_parameter:
           }
           max_id[sizeof(max_device_list[0]) - 1] = '\0';
           printFmtToDebug("MAX device info received:\r\n%08lX\r\n%s\r\n", max_addr, max_id);
-  
+
           for (uint16_t x=0;x<MAX_CUL_DEVICES;x++) {
             if (max_devices[x] == max_addr) {
               printlnToDebug("Device already in EEPROM");
@@ -6918,13 +6994,13 @@ next_parameter:
               break;
             }
           }
-  
+
           if (!known_eeprom) {
             for (uint16_t x=0;x<MAX_CUL_DEVICES;x++) {
               if (max_devices[x] < 1) {
                 strcpy(max_device_list[x], max_id);
                 max_devices[x] = max_addr;
-  
+
                 writeToEEPROM(CF_MAX_DEVICES);
                 writeToEEPROM(CF_MAX_DEVADDR);
                 printlnToDebug("Device stored in EEPROM");
@@ -6933,19 +7009,19 @@ next_parameter:
             }
           }
         }
-  
+
         if (max_msg_type == 0x02 && known_addr == true) {
           strncpy(max_hex_str, outBuf+27, 2);
           max_hex_str[2]='\0';
           max_valve[max_idx] = (uint32_t)strtoul(max_hex_str,NULL,16);
           printFmtToDebug("Valve position from thermostat received:\r\n%08lX\r\n%lu\r\n", max_addr, max_valve[max_idx]);
         }
-  
+
         if ((max_msg_type == 0x42 || max_msg_type == 0x60) && known_addr == true) {   // Temperature from thermostats
           uint8_t temp_str_offset;
           uint32_t max_temp_status;
           uint8_t str_len;
-  
+
           switch (max_msg_len) {
             case 0x0C: temp_str_offset = 23; str_len = 4; break;
             case 0x0E: temp_str_offset = 25; str_len = 8; break;
@@ -6964,7 +7040,7 @@ next_parameter:
             max_dst_temp[max_idx] = (max_temp_status & 0xFF0000) >> 16;
             max_valve[max_idx] = (max_temp_status & 0xFF000000) >> 24;
           }
-  
+
           printlnToDebug("MAX temperature message received:");
           printFmtToDebug("%08lX\r\n%f\r\n%f\r\n%lu\r\n", max_addr, ((float)max_cur_temp[max_idx] / 10), (float)(max_dst_temp[max_idx] / 2), max_valve[max_idx]);
         }
@@ -7029,7 +7105,7 @@ next_parameter:
           }
         }
       }
-  
+
       if ((WiFi.status() != WL_CONNECTED || not_preferred_bssid == true) && localAP == false) {
         printFmtToDebug("Reconnecting to WiFi...\r\n");
         scanAndConnectToStrongestNetwork();
@@ -7108,8 +7184,8 @@ void printWifiStatus()
     printFmtToDebug("BSSID: %02X:%02X:%02X:%02X:%02X:%02X\r\n", WiFi.BSSID()[0], WiFi.BSSID()[1], WiFi.BSSID()[2], WiFi.BSSID()[3], WiFi.BSSID()[4], WiFi.BSSID()[5]);
     // print your WiFi shield's IP address
     IPAddress t = WiFi.localIP();
-    printFmtToDebug("IP Address: %d.%d.%d.%d\r\n", t[0], t[1], t[2], t[3]);
-  
+    printFmtToDebug(PSTR("IP Address: %d.%d.%d.%d\r\n"), t[0], t[1], t[2], t[3]);
+
     // print the received signal strength
     long rssi = WiFi.RSSI();
     printFmtToDebug("Signal strength (RSSI): %l dBm\r\n", rssi);
@@ -7385,6 +7461,10 @@ active_cmdtbl_size = sizeof(cmdtbl)/sizeof(cmdtbl[0]);
   registerConfigVariable(CF_RX_PIN, (byte *)&bus_pins[0]);
   registerConfigVariable(CF_TX_PIN, (byte *)&bus_pins[1]);
   registerConfigVariable(CF_CONFIG_LEVEL, (byte *)&config_level);
+#if defined(BLE_SENSORS) && defined(ESP32)
+  registerConfigVariable(CF_ENABLE_BLE, (byte *)&EnableBLE);
+  registerConfigVariable(CF_BLE_SENSORS_MACS, (byte *)BLE_sensors_macs);
+#endif
 
   readFromEEPROM(CF_PPS_VALUES);
   byte UseEEPROM_in_config_h = UseEEPROM;
@@ -7719,7 +7799,7 @@ active_cmdtbl_size = sizeof(cmdtbl)/sizeof(cmdtbl[0]);
     esp_wifi_disconnect(); //disconnect form wifi to set new wifi connection
     WiFi.mode(WIFI_STA); //init wifi mode
     esp_wifi_set_bandwidth(WIFI_IF_STA, WIFI_BW_HT20);  // W.Bra. 23.03.23 HT20 - reduce bandwidth from 40 to 20 MHz. In 2.4MHz networks, this will increase speed and stability most of the time, or will at worst result in a roughly 10% decrease in transmission speed.
-  
+
     printToDebug("Setting up WiFi interface");
     WiFi.begin();
     timeout = millis();
@@ -7730,7 +7810,7 @@ active_cmdtbl_size = sizeof(cmdtbl)/sizeof(cmdtbl[0]);
     writelnToDebug();
     scanAndConnectToStrongestNetwork();
     #endif
-  
+
     // attempt to connect to WiFi network
     printFmtToDebug("Attempting to connect to WPA SSID: %s", wifi_ssid);
     timeout = millis();
@@ -7916,7 +7996,7 @@ active_cmdtbl_size = sizeof(cmdtbl)/sizeof(cmdtbl[0]);
           if (isnan(avgValues_Old[i])) {
             avgValues_Old[i] = -9999;
           }
-  
+
           c = avgfile.read();
           x = 0;
           while (avgfile.available() && c != '\n' && x < sizeof(num)-1) {
@@ -7929,7 +8009,7 @@ active_cmdtbl_size = sizeof(cmdtbl)/sizeof(cmdtbl[0]);
           num[x]='\0';
           avgValues_Current[i] = atof(num);
         }
-  
+
         c = avgfile.read();
         x = 0;
         while (avgfile.available() && c != '\n' && x < sizeof(num)-1) {
@@ -7983,9 +8063,16 @@ active_cmdtbl_size = sizeof(cmdtbl)/sizeof(cmdtbl[0]);
 #include "BSB_LAN_custom_setup.h"
 #endif
 
+#if defined(BLE_SENSORS) && defined(ESP32)
+  if(EnableBLE) {
+    startBLEScan();
+  }
+#endif
+
 #if !defined(ESP32)
   FsDateTime::setCallback(dateTime);
 #endif
-  printlnToDebug("Setup complete");
+
+  printlnToDebug(PSTR("Setup complete"));
   debug_mode = save_debug_mode; //restore actual debug mode
 }

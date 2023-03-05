@@ -189,6 +189,8 @@
 #define CF_TX_PIN_TEXT "TX Pin Nummer"
 #define CF_CONFIG_LEVEL_TEXT "Erweiterte Einstellungen anzeigen"
 #define CF_ENERGY_SAVE_TEXT "Energiesparmodus"
+#define CF_ENABLE_BLE_TEXT "Query sensors"
+#define CF_BLE_SENSORS_MACS_TEXT "List sensors MACs for reading"
 
 #define CAT_GENERAL_TEXT "Generell"
 #define CAT_IPV4_TEXT "Netzwerk"
@@ -203,6 +205,7 @@
 #define CAT_24HAVG_TEXT "24h-Durchschnittswerte"
 #define CAT_RGT_EMUL_TEXT "RGT Emulation"
 #define CAT_BMEBUS_TEXT "BME280 sensors"
+#define CAT_BLEBUS_TEXT "BLE sensors"
 
 #define STR10100_TEXT "Systemstatus"
 #define STR10101_TEXT "INFO Trinkwasserbereitung"
@@ -263,6 +266,11 @@
 #define STR20503_TEXT "MAX! Sensor Ventilöffnung"
 #define STR20700_TEXT "custom_float"
 #define STR20800_TEXT "custom_long"
+#define STR20900_TEXT "BLE Sensor ID"
+#define STR20901_TEXT "BLE Sensor Temperatur"
+#define STR20902_TEXT "BLE Sensor Luftfeuchtigkeit"
+#define STR20903_TEXT "BLE Sensor Pressure"
+#define STR20904_TEXT "BLE Battery voltage"
 
 #define STR99999_TEXT "UNKNOWN command code"
 

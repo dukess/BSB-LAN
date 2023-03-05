@@ -87,9 +87,12 @@ typedef enum{
   CF_NETWORK_TYPE,
 // Version 13 (introduce dummy variable to easily change minimum EEPROM schema version in case of change in variable type etc.)
   CF_DUMMY,
+// Version 14 (Xiaomi BLE sensors)
+  CF_ENABLE_BLE, // Size: 1 byte.
+  CF_BLE_SENSORS_MACS, // Size: 20 x 6 bytes. (List of BLE devices MACs)
 //Maximum version can be 65534 (0xFFFE). In other case initConfigTable() will locked in infinite loop
 //Maximum options count can be 253 for same reason (or must changing uint8_t type to uint16_t)
-// Version 14 (remove fixed device family/variant)
+// Version 15 (remove fixed device family/variant)
   CF_LAST_OPTION //Virtual option. Must be last in enum. Only for internal usage.
 } cf_params;
 
@@ -131,7 +134,8 @@ typedef enum {
   CCAT_LOGGING,
   CCAT_24HAVG,
   CCAT_RGT_EMUL,
-  CCAT_BMEBUS
+  CCAT_BMEBUS,
+  CCAT_BLEBUS
 } ccat_params;
 
 
@@ -167,7 +171,8 @@ const category_list_struct catalist[]={
   {CCAT_LOGGING,        CAT_LOGGING_TXT},
   {CCAT_24HAVG,         CAT_24HAVG_TXT},
   {CCAT_RGT_EMUL,       CAT_RGT_EMUL_TXT},
-  {CCAT_BMEBUS,         CAT_BMEBUS_TXT}
+  {CCAT_BMEBUS,         CAT_BMEBUS_TXT},
+  {CCAT_BLEBUS,         CAT_BLEBUS_TXT}
 };
 
 const configuration_struct config[]={
@@ -223,6 +228,10 @@ const configuration_struct config[]={
 //bus and pins: DHT_Pins
   {CF_DHTBUS,           2, CCAT_DHTBUS,   CPI_TEXT,      CDT_DHTBUS,         OPT_FL_ADVANCED, CF_PINS_TXT, sizeof(DHT_Pins)}, //immediately apply
   {CF_BMEBUS,           6, CCAT_BMEBUS,   CPI_TEXT,      CDT_BYTE,           OPT_FL_ADVANCED, CF_NUM_TXT, sizeof(BME_Sensors)}, //need reboot
+#if defined(BLE_SENSORS) && defined(ESP32)
+  {CF_ENABLE_BLE,       14,CCAT_BLEBUS,   CPI_SWITCH,    CDT_BYTE,           OPT_FL_ADVANCED, CF_ENABLE_BLE_TXT, sizeof(EnableBLE)}, //need reboot
+  {CF_BLE_SENSORS_MACS, 14,CCAT_BLEBUS,   CPI_TEXT,      CDT_MAC,            OPT_FL_ADVANCED, CF_BLE_SENSORS_MACS_TXT, sizeof(BLE_sensors_macs)}, //need reboot
+#endif
   {CF_MAX,              2, CCAT_MAX,      CPI_SWITCH,    CDT_BYTE,           OPT_FL_ADVANCED, CF_USE_TXT, sizeof(enable_max_cul)},//immediately apply
   {CF_MAX_IPADDRESS,    2, CCAT_MAX,      CPI_TEXT,      CDT_IPV4,           OPT_FL_ADVANCED, CF_MAX_IPADDRESS_TXT, sizeof(max_cul_ip_addr)}, //need reboot. Can use handler to reconfigure in future
   {CF_MAX_DEVICES,      0, CCAT_MAX,      CPI_TEXT,      CDT_MAXDEVICELIST,  OPT_FL_ADVANCED, CF_DEVICES_TXT, sizeof(max_device_list)}, //Need to call UpdateMaxDeviceList() before saving to EEPROM
