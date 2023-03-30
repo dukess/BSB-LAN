@@ -500,6 +500,11 @@ void loop();
 #include <Arduino.h>
 #include "src/Base64/src/Base64.h"
 
+typedef struct {
+  float number;
+  byte dest_addr;
+} program;
+
 //#include "src/BSB/BSBSoftwareSerial.h"
 #include "src/BSB/bsb.h"
 #include "BSB_LAN_config.h"
@@ -804,7 +809,7 @@ static const int numCustomFloats = sizeof(custom_floats) / sizeof(custom_floats[
 static const int numCustomLongs = sizeof(custom_longs) / sizeof(custom_longs[0]);
 
 #ifdef AVERAGES
-static const int numAverages = (sizeof(avg_parameters) / sizeof(avg_parameters[0]))/2;
+static const int numAverages = sizeof(avg_parameters) / sizeof(avg_parameters[0]);
 float avgValues_Old[numAverages] = {0};
 float avgValues[numAverages] = {0};
 float avgValues_Current[numAverages] = {0};
@@ -979,6 +984,63 @@ int char2int(char input)
 #include "include/print2debug.h"
 /* Functions for management "Ring" output buffer */
 #include "include/print2webclient.h"
+
+program parsingStringToProgram(char *data){
+  program prg;
+  prg.number = atof(data);
+  prg.dest_addr = 0;
+  char* token = strchr(data, '!');
+  if (token != NULL) {
+    token++;
+    if (token[0] > 0) {
+      prg.dest_addr = (uint8_t)atoi(token);
+    }
+  }  
+  return prg;
+}
+
+void set_temp_dest(uint8_t newDestAddr){
+  printFmtToDebug(PSTR("Setting temporary destination to %d\r\n"), newDestAddr);
+  bus->setBusType(bus->getBusType(), bus->getBusAddr(), newDestAddr);
+  GetDevId();
+}
+
+void query_temp_dest(program prg){
+  uint8_t destAddr = bus->getBusDest();
+  uint8_t d_addr = destAddr;
+  uint8_t save_my_dev_fam = my_dev_fam;
+  uint8_t save_my_dev_var = my_dev_var;
+  if (prg.dest_addr > 0 && prg.dest_addr != destAddr) {
+    d_addr = prg.dest_addr;
+    set_temp_dest(d_addr);
+  }
+  query(prg.number);
+  if (destAddr != d_addr) {
+    printFmtToDebug(PSTR("Returning to default destination %d\r\n"), destAddr);
+    bus->setBusType(bus->getBusType(), bus->getBusAddr(), destAddr);
+    my_dev_fam = save_my_dev_fam;
+    my_dev_var = save_my_dev_var;
+  }
+}
+
+int set_to_temp_dest(program prg, const char *val, bool setcmd){
+  uint8_t destAddr = bus->getBusDest();
+  uint8_t d_addr = destAddr;
+  uint8_t save_my_dev_fam = my_dev_fam;
+  uint8_t save_my_dev_var = my_dev_var;
+  if (prg.dest_addr > 0 && prg.dest_addr != destAddr) {
+    d_addr = prg.dest_addr;
+    set_temp_dest(d_addr);
+  }
+  int result = set(prg.number, val, setcmd);
+  if (destAddr != d_addr) {
+    printFmtToDebug(PSTR("Returning to default destination %d\r\n"), destAddr);
+    bus->setBusType(bus->getBusType(), bus->getBusAddr(), destAddr);
+    my_dev_fam = save_my_dev_fam;
+    my_dev_var = save_my_dev_var;
+  }
+  return result;
+}
 
 void printHTTPheader(uint16_t code, int mimetype, bool addcharset, bool isGzip, bool isDownload, long cachingTime) {
   const char *getfarstrings;
@@ -1280,7 +1342,7 @@ int findLine(float line
   if (line >= BSP_INTERNAL && line < BSP_END) {
     switch (recognizeVirtualFunctionGroup(line)) {
       case 1: break;
-      case 2:  line = avg_parameters[(((uint16_t)line) - BSP_AVERAGES)*2]; if (line == 0) return -1; else break;
+      case 2:  line = avg_parameters[((uint16_t)line) - BSP_AVERAGES].number; if (line == 0) return -1; else break;
       case 3: {
         if (DHT_Pins[(((uint16_t)line) - BSP_DHT22)] == 0) { //pin not assigned to DHT sensor
           return -1;
@@ -2084,6 +2146,17 @@ void printDeviceArchToWebClient(){
   #endif
 }
 
+void printFmtParameterToWebClient(program prg, int number){
+  if (prg.number > 0) {
+    printFmtToWebClient(PSTR("%g"), prg.number);
+    if(prg.dest_addr) printFmtToWebClient(PSTR("!%d"), prg.dest_addr);
+    printToWebClient(PSTR(" - "));
+    printToWebClient(lookup_descr(prg.number));//outBuf will be overwrited here
+    if(number) printFmtToWebClient(PSTR(": %d"), number);
+    printToWebClient(PSTR("<BR>\r\n"));
+  }
+}
+
 void generateConfigPage(void) {
 #if !defined(WEBCONFIG)
   printlnToWebClient(PSTR(MENU_TEXT_CFG "<BR>"));
@@ -2339,9 +2412,7 @@ void generateConfigPage(void) {
     printToWebClient(PSTR(": <BR>\r\n"));
 
     for (int i=0; i<numAverages; i++) {
-      if (avg_parameters[i*2] > 0) {
-        printFmtToWebClient(PSTR("%g - %s: %d<BR>\r\n"), avg_parameters[i*2], lookup_descr(avg_parameters[i*2]), BSP_AVERAGES + i);//outBuf will be overwrited here
-      }
+      printFmtParameterToWebClient(avg_parameters[i], BSP_AVERAGES + i);//outBuf will be overwrited here
     }
     printToWebClient(PSTR("<BR>"));
   }
@@ -2352,11 +2423,7 @@ void generateConfigPage(void) {
   printyesno(LoggingMode & CF_LOGMODE_SD_CARD);
   printToWebClient(PSTR("<BR>\r\n"));
   for (int i=0; i<numLogValues; i++) {
-    if (log_parameters[i] > 0) {
-      printFmtToWebClient(PSTR("%g - "), log_parameters[i]);
-      printToWebClient(lookup_descr(log_parameters[i]));//outBuf will be overwrited here
-      printToWebClient(PSTR("<BR>\r\n"));
-    }
+    printFmtParameterToWebClient(log_parameters[i], 0);//outBuf will be overwrited here
   }
 
 if (logTelegram) {
@@ -2449,18 +2516,9 @@ uint8_t takeNewConfigValueFromUI_andWriteToRAM(int option_id, char *buf) {
         char *ptr_t = ptr;
         ptr = strchr(ptr, ',');
         if (ptr) ptr[0] = 0;
-        ((float *)variable)[j] = atof(ptr_t);
-        char* token = strchr(ptr_t, '!');
-        if (token != NULL) {
-          token++;
-          if (token[0] > 0) {
-            ((float *)variable)[j+1] = atof(token);
-          } else {
-            ((float *)variable)[j+1] = 0;
-          }
-        }
+        ((program *)variable)[j] = parsingStringToProgram(ptr_t);
         if (ptr) {ptr[0] = ','; ptr++;}
-        j=j+2;
+        j++;
       }while (ptr && j < cfg.size/sizeof(int));
       // writeToConfigVariable(option_id, variable); not needed here
       break;}
@@ -2661,15 +2719,15 @@ void printDHTlistToWebClient(byte *variable, uint16_t size) {
   }
 }
 
-void printProglistToWebClient(float *variable, uint16_t size) {
+void printProglistToWebClient(program *variable, uint16_t size) {
   bool isFirst = true;
-  for (uint16_t j = 0; j < size/sizeof(float); j=j+2) {
-    if (variable[j]) {
+  for (uint16_t j = 0; j < size/sizeof(program); j++) {
+    if (variable[j].number) {
       if (!isFirst) printToWebClient(PSTR(","));
       isFirst = false;
-      printFmtToWebClient(PSTR("%g"), variable[j]);
-      if (variable[j+1] > 0) {
-        printFmtToWebClient(PSTR("!%g"), variable[j+1]);
+      printFmtToWebClient(PSTR("%g"), variable[j].number);
+      if (variable[j].dest_addr > 0) {
+        printFmtToWebClient(PSTR("!%d"), variable[j].dest_addr);
       }
     }
   }
@@ -2885,7 +2943,7 @@ void generateWebConfigPage(bool printOnly) {
        printFmtToWebClient(PSTR("%u.%u.%u.%u"), (int)variable[0], (int)variable[1], (int)variable[2], (int)variable[3]);
        break;
      case CDT_PROGNRLIST:
-       printProglistToWebClient((float *)variable, cfg.size);
+       printProglistToWebClient((program *)variable, cfg.size);
        break;
      case CDT_DHTBUS:
        printDHTlistToWebClient((byte *)variable, cfg.size);
@@ -3018,7 +3076,7 @@ void generateJSONwithConfig() {
        printFmtToWebClient(PSTR("%u.%u.%u.%u\""), (int)variable[0], (int)variable[1], (int)variable[2], (int)variable[3]);
        break;
      case CDT_PROGNRLIST:
-       printProglistToWebClient((float *)variable, cfg.size);
+       printProglistToWebClient((program *)variable, cfg.size);
        printToWebClient(PSTR("\""));
        break;
      case CDT_DHTBUS:
@@ -4581,8 +4639,8 @@ uint16_t setPPS(uint8_t pps_index, int16_t value) {
   if (pps_values[pps_index] != value) {
     if (LoggingMode & CF_LOGMODE_SD_CARD) {
       for (int i=0; i < numLogValues; i++) {
-        if (log_parameters[i] == 15000 + pps_index) {
-          log_parameter = log_parameters[i];
+        if (log_parameters[i].number == 15000 + pps_index) {
+          log_parameter = log_parameters[i].number;
         }
       }
     }
@@ -4835,6 +4893,12 @@ void internalLEDBlinking(uint16_t period, uint16_t count) {
     delay(period);
   }
   digitalWrite(LED_BUILTIN, LOW);    // turn the LED off by making the voltage LOW
+}
+
+void print_parameter_in_JSON_format(program prg) {
+  printFmtToWebClient(PSTR("    { \"parameter\": %g"), prg.number);
+  if(prg.dest_addr) printFmtToWebClient(PSTR(", \"dest_addr\": %d"), prg.dest_addr);
+  printToWebClient(PSTR(" }"));
 }
 
 #include "include/pps_handling.h"
@@ -5360,36 +5424,18 @@ void loop() {
           if (!isdigit(*p)) {   // now we check for digits - nice
             printToWebClient(PSTR(MENU_TEXT_ER1 "\r\n"));
           } else {
-            line=atof(p);       // convert until non-digit char is found
             p=strchr(p,'=');    // search for '=' sign
             if (p==NULL) {        // no match
                 printToWebClient(PSTR(MENU_TEXT_ER2 "\r\n"));
             } else {
-              uint8_t save_my_dev_fam = my_dev_fam;
-              uint8_t save_my_dev_var = my_dev_var;
               p++;                   // position pointer past the '=' sign
-              char* token = strchr(p, '!');
-              if (token != NULL) {
-                token++;
-                if (token[0] > 0) {
-                  int d_addr = atoi(token);
-                  printFmtToDebug(PSTR("Setting temporary destination to %d\r\n"), d_addr);
-                  bus->setBusType(bus->getBusType(), bus->getBusAddr(), d_addr);
-                  GetDevId();
-/*
-                  query(6225);
-                  my_dev_fam = strtod(decodedTelegram.value,NULL);
-                  query(6226);
-                  my_dev_var = strtod(decodedTelegram.value,NULL);
-*/
-               }
-              }
+              program prg = parsingStringToProgram(p);
 
-              printFmtToDebug(PSTR("set ProgNr %g = %s"), line, p);
+              printFmtToDebug(PSTR("set ProgNr %g = %s"), prg.number, p);
               writelnToDebug();
               // Now send it out to the bus
               int setresult = 0;
-              setresult = set(line,p,setcmd);
+              setresult = set_to_temp_dest(prg, p, setcmd);
 
               if (setresult!=1) {
                 printToWebClient(PSTR(MENU_TEXT_ER3 "\r\n"));
@@ -5402,16 +5448,11 @@ void loop() {
               } else {
                 if (setcmd) {            // was this a SET command?
                   // Query controller for this value
-                  query(line);  // read value back
+                  query_temp_dest(prg);  // read value back
                   query_printHTML();
                 } else { // INF command
 
                 }
-              }
-              if (bus->getBusDest() != destAddr) {
-                bus->setBusType(bus->getBusType(), bus->getBusAddr(), destAddr);
-                my_dev_fam = save_my_dev_fam;
-                my_dev_var = save_my_dev_var;
               }
             }
           }
@@ -5936,13 +5977,13 @@ void loop() {
               printToWebClient(PSTR(",\r\n  \"averages\": [\r\n"));
               not_first = false;
               for (i=0; i<numAverages; i++) {
-                if (avg_parameters[i*2] > 0) {
+                if (avg_parameters[i].number > 0) {
                   if (not_first) {
                     printToWebClient(PSTR(",\r\n"));
                   } else {
                     not_first = true;
                   }
-                  printFmtToWebClient(PSTR("    { \"parameter\": %g }"), avg_parameters[i*2]);
+                  print_parameter_in_JSON_format(avg_parameters[i]);
                 }
               }
               printToWebClient(PSTR("\r\n  ]"));
@@ -5953,13 +5994,13 @@ void loop() {
             printFmtToWebClient(PSTR(",\r\n  \"loggingmode\": %d,\r\n  \"loginterval\": %d,\r\n  \"logged\": [\r\n"), LoggingMode, log_interval);
             not_first = false;
             for (i=0; i<numLogValues; i++) {
-              if (log_parameters[i] > 0)  {
+              if (log_parameters[i].number > 0)  {
                 if (not_first) {
                   printToWebClient(PSTR(",\r\n"));
                 } else {
                   not_first = true;
                 }
-                printFmtToWebClient(PSTR("    { \"parameter\": %g }"), log_parameters[i]);
+                print_parameter_in_JSON_format(log_parameters[i]);
               }
             }
             printToWebClient(PSTR("\r\n  ]"));
@@ -6603,31 +6644,20 @@ void loop() {
               int token_counter = 0;
               if (log_token != 0) {
                 for (int i=0;i<numLogValues;i++) {
-                  log_parameters[i] = 0;
+                  log_parameters[i].number = 0;
+                  log_parameters[i].dest_addr = 0;
                 }
               printToWebClient(PSTR(MENU_TEXT_LGN ": "));
               }
               while (log_token!=0) {
-                float log_parameter = atof(log_token);
-                float dest = 0;
-                char* token = strchr(log_token, '!');
-                if (token != NULL) {
-                  token++;
-                  if (token[0] > 0) {
-                    dest = atof(token);
-                  } else {
-                    dest = 0;
-                  }
-                }
                 if (token_counter < numLogValues) {
-                  log_parameters[token_counter] = log_parameter;
-                  log_parameters[token_counter+1] = dest;
-                  printFmtToWebClient(PSTR("%g"), log_parameters[token_counter]);
-                  if (dest > 0) {
-                    printFmtToWebClient(PSTR("!%g"), dest);
+                  log_parameters[token_counter] = parsingStringToProgram(log_token);
+                  printFmtToWebClient(PSTR("%g"), log_parameters[token_counter].number);
+                  if (log_parameters[token_counter].dest_addr > 0) {
+                    printFmtToWebClient(PSTR("!%d"), log_parameters[token_counter].dest_addr);
                   }
                   printToWebClient(PSTR(" \r\n"));
-                  token_counter = token_counter + 2;
+                  token_counter++;
                 }
                 log_token = strtok(NULL,"=,");
               }
@@ -6782,31 +6812,21 @@ void loop() {
                 int token_counter = 0;
                 if (avg_token != 0) {
                   resetAverageCalculation();
-                  for (int i=0;i<numAverages*2;i++) {
-                    avg_parameters[i] = 0;
+                  for (int i=0;i<numAverages;i++) {
+                    avg_parameters[i].number = 0;
+                    avg_parameters[i].dest_addr = 0;
                   }
                   printToWebClient(PSTR(MENU_TEXT_24N ": "));
                 }
                 while (avg_token!=0) {
-                  float dest = 0;
-                  char* token = strchr(avg_token, '!');
-                  if (token != NULL) {
-                    token++;
-                    if (token[0] > 0) {
-                      dest = atof(token);
-                    } else {
-                      dest = 0;
-                    }
-                  }
-                  if (token_counter < numAverages*2) {
-                    avg_parameters[token_counter] = atof(avg_token);
-                    avg_parameters[token_counter+1] = dest;
-                    printFmtToWebClient(PSTR("%g"), avg_parameters[token_counter]);
-                    if (dest > 0) {
-                      printFmtToWebClient(PSTR("!%g"), dest);
+                  if (token_counter < numAverages) {
+                    avg_parameters[token_counter] = parsingStringToProgram(avg_token);
+                    printFmtToWebClient(PSTR("%g"), avg_parameters[token_counter].number);
+                    if (avg_parameters[token_counter].dest_addr > 0) {
+                      printFmtToWebClient(PSTR("!%d"), avg_parameters[token_counter].dest_addr);
                     }
                     printToWebClient(PSTR(" \r\n"));
-                    token_counter = token_counter + 2;
+                    token_counter++;
                   }
                   avg_token = strtok(NULL,"=,");
                 }
@@ -6899,15 +6919,7 @@ void loop() {
                 token++;
                 if (token[0] > 0) {
                   int d_addr = atoi(token);
-                  printFmtToDebug(PSTR("Setting temporary destination to %d\r\n"), d_addr);
-                  bus->setBusType(bus->getBusType(), bus->getBusAddr(), d_addr);
-                  GetDevId();
-/*
-                  query(6225);
-                  my_dev_fam = strtod(decodedTelegram.value,NULL);
-                  query(6226);
-                  my_dev_var = strtod(decodedTelegram.value,NULL);
-*/
+                  set_temp_dest(d_addr);
                 }
               }
 
@@ -6968,25 +6980,10 @@ void loop() {
 
       if ((((millis() - lastMQTTTime >= (log_interval * 1000)) && log_interval > 0) || log_now > 0) && numLogValues > 0) {
         lastMQTTTime = millis();
-        uint8_t destAddr = bus->getBusDest();
-        float d_addr = (float)destAddr;
-        uint8_t save_my_dev_fam = my_dev_fam;
-        uint8_t save_my_dev_var = my_dev_var;
-        for (int i=0; i < numLogValues; i=i+2) {
-          if (log_parameters[i] > 0) {
-            if (log_parameters[i+1] != d_addr) {
-              d_addr = log_parameters[i+1];
-              printFmtToDebug(PSTR("Setting temporary destination to %g\r\n"), d_addr);
-              bus->setBusType(bus->getBusType(), bus->getBusAddr(), (uint8_t)d_addr);
-              GetDevId();
-            }
-            mqtt_sendtoBroker(log_parameters[i], log_parameters[i+1]);  //Luposoft, put whole unchanged code in new function mqtt_sendtoBroker to use it at other points as well
+        for (int i=0; i < numLogValues; i++) {
+          if (log_parameters[i].number > 0) {
+            mqtt_sendtoBroker(log_parameters[i]);  //Luposoft, put whole unchanged code in new function mqtt_sendtoBroker to use it at other points as well
           }
-        }
-        if (destAddr != d_addr) {
-          bus->setBusType(bus->getBusType(), bus->getBusAddr(), destAddr);
-          my_dev_fam = save_my_dev_fam;
-          my_dev_var = save_my_dev_var;
         }
         if (MQTTPubSubClient != NULL && !(LoggingMode & CF_LOGMODE_MQTT)) { //Luposoft: user may disable MQTT through web interface
           // Actual disconnect will be handled a few lines below through mqtt_disconnect().
@@ -7031,26 +7028,16 @@ void loop() {
 #endif
         broadcast_ip = IPAddress(local_ip[0], local_ip[1], local_ip[2], 0xFF);
       }
-      uint8_t destAddr = bus->getBusDest();
-      float d_addr = (float)destAddr;
-      uint8_t save_my_dev_fam = my_dev_fam;
-      uint8_t save_my_dev_var = my_dev_var;
-      for (int i=0; i < numLogValues; i=i+2) {
+      for (int i=0; i < numLogValues; i++) {
         int outBufLen = 0;
-        if (log_parameters[i] > 0) {
-          if (log_parameters[i+1] != d_addr) {
-            d_addr = log_parameters[i+1];
-            printFmtToDebug(PSTR("Setting temporary destination to %g\r\n"), d_addr);
-            bus->setBusType(bus->getBusType(), bus->getBusAddr(), (uint8_t)d_addr);
-            GetDevId();
-          }
-          query(log_parameters[i]);
+        if (log_parameters[i].number > 0) {
+          query_temp_dest(log_parameters[i]);
           if (decodedTelegram.prognr < 0) continue;
           if (LoggingMode & CF_LOGMODE_UDP) udp_log.beginPacket(broadcast_ip, UDP_LOG_PORT);
-          outBufLen += sprintf_P(outBuf + outBufLen, PSTR("%lu;%s;%g;"), millis(), GetDateTime(outBuf + outBufLen + 80), log_parameters[i]);
+          outBufLen += sprintf_P(outBuf + outBufLen, PSTR("%lu;%s;%g;"), millis(), GetDateTime(outBuf + outBufLen + 80), log_parameters[i].number);
 
 #ifdef AVERAGES
-          if ((log_parameters[i] >= BSP_AVERAGES && log_parameters[i] < BSP_AVERAGES + numAverages)) {
+          if ((log_parameters[i].number >= BSP_AVERAGES && log_parameters[i].number < BSP_AVERAGES + numAverages)) {
             //averages
             outBufLen += strlen(strcpy_P(outBuf + outBufLen, PSTR(STR_24A_TEXT ". ")));
           }
@@ -7087,11 +7074,6 @@ void loop() {
       }
       if (dataFile) dataFile.close();
       lastLogTime = millis();
-      if (destAddr != d_addr) {
-        bus->setBusType(bus->getBusType(), bus->getBusAddr(), destAddr);
-        my_dev_fam = save_my_dev_fam;
-        my_dev_var = save_my_dev_var;
-      }
     }
   }
 #endif
@@ -7108,8 +7090,8 @@ void loop() {
         avgCounter = 1;
       }
       for (int i=0; i<numAverages; i++) {
-        if (avg_parameters[i*2] > 0) {
-          query(avg_parameters[i*2]);
+        if (avg_parameters[i].number > 0) {
+          query_temp_dest(avg_parameters[i]);
           float reading = strtod(decodedTelegram.value,NULL);
           printFmtToDebug(PSTR("%f\r\n"), reading);
           if (isnan(reading)) {} else {
@@ -7129,11 +7111,11 @@ void loop() {
   #ifdef LOGGER
 
   // write averages to SD card to protect from power off
-      if (avg_parameters[0] > 0) { //write averages if at least one value is set
+      if (avg_parameters[0].number > 0) { //write averages if at least one value is set
         File avgfile = SD.open(averagesFileName, FILE_WRITE);
         if (avgfile) {
           avgfile.seek(0);
-          for (int i=0; i<numAverages/2; i++) {
+          for (int i=0; i<numAverages; i++) {
             sprintf_P(outBuf, PSTR("%f\r\n%f\r\n%f\r\n"), avgValues[i], avgValues_Old[i], avgValues_Current[i]);
             avgfile.print(outBuf);
           }
@@ -7170,12 +7152,12 @@ void loop() {
         k = 1;
       }
       for (uint8_t i = 0; i < k; i++) {
-        if (rgte_sensorid[i][0] != 0) {
+        if (rgte_sensorid[i][0].number != 0) {
           uint8_t z = 0;
           float value = 0;
           for (uint8_t j = 0; j < 5; j++) {
-            if (rgte_sensorid[i][j] != 0) {
-              query(rgte_sensorid[i][j]);
+            if (rgte_sensorid[i][j].number != 0) {
+              query_temp_dest(rgte_sensorid[i][j]);
               if (decodedTelegram.type == VT_TEMP && decodedTelegram.error == 0) {
                 z++;
                 value += atof(decodedTelegram.value);

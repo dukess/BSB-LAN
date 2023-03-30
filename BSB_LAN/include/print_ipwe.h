@@ -25,8 +25,8 @@
    printHTTPheader(HTTP_OK, MIME_TYPE_TEXT_HTML, HTTP_ADD_CHARSET_TO_HEADER, HTTP_FILE_NOT_GZIPPED, HTTP_NO_DOWNLOAD, HTTP_DO_NOT_CACHE);
    printToWebClient(PSTR("\r\n<html><body><form><table border=1><tbody><tr><td>Sensortyp</td><td>Adresse</td><td>Beschreibung</td><td>Wert</td><td>Luftfeuchtigkeit</td><td>Windgeschwindigkeit</td><td>Regenmenge</td></tr>"));
    for (i=0; i < numIPWESensors; i++) {
-     if (!ipwe_parameters[i]) continue;
-     query(ipwe_parameters[i]);
+     if (!ipwe_parameters[i].number) continue;
+     query_temp_dest(ipwe_parameters[i]);
      counter++;
      printFmtToWebClient(PSTR("<tr><td>T<br></td><td>%d<br></td><td>"), counter);
      printToWebClient_prognrdescaddr();
@@ -40,7 +40,7 @@
  #ifdef AVERAGES
    if (LoggingMode & CF_LOGMODE_24AVG) {
      for (int i=0; i<numAverages; i++) {
-       if (avg_parameters[i] > 0) {
+       if (avg_parameters[i].number > 0) {
          counter++;
          query(BSP_AVERAGES + i);
          printFmtToWebClient(PSTR("<tr><td>T<br></td><td>%d"), counter);
