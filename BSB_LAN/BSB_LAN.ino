@@ -1005,6 +1005,11 @@ void set_temp_dest(uint8_t newDestAddr){
   GetDevId();
 }
 
+void set_def_dest(uint8_t defaultDestAddr){
+  printFmtToDebug(PSTR("Returning to default destination %d\r\n"), defaultDestAddr);
+  bus->setBusType(bus->getBusType(), bus->getBusAddr(), defaultDestAddr);
+}
+
 void query_temp_dest(program prg){
   uint8_t destAddr = bus->getBusDest();
   uint8_t d_addr = destAddr;
@@ -1016,8 +1021,7 @@ void query_temp_dest(program prg){
   }
   query(prg.number);
   if (destAddr != d_addr) {
-    printFmtToDebug(PSTR("Returning to default destination %d\r\n"), destAddr);
-    bus->setBusType(bus->getBusType(), bus->getBusAddr(), destAddr);
+    set_def_dest(destAddr);
     my_dev_fam = save_my_dev_fam;
     my_dev_var = save_my_dev_var;
   }
@@ -1034,8 +1038,7 @@ int set_to_temp_dest(program prg, const char *val, bool setcmd){
   }
   int result = set(prg.number, val, setcmd);
   if (destAddr != d_addr) {
-    printFmtToDebug(PSTR("Returning to default destination %d\r\n"), destAddr);
-    bus->setBusType(bus->getBusType(), bus->getBusAddr(), destAddr);
+    set_def_dest(destAddr);
     my_dev_fam = save_my_dev_fam;
     my_dev_var = save_my_dev_var;
   }
@@ -5872,6 +5875,8 @@ void loop() {
           uint8_t destAddr = bus->getBusDest();
           uint8_t tempDestAddr = 0;
           uint8_t tempDestAddrOnPrevIteration = 0;
+          uint8_t save_my_dev_fam = my_dev_fam;
+          uint8_t save_my_dev_var = my_dev_var;
           uint8_t opening_brackets = 0;
           char* json_token = strtok(p, "=,"); // drop everything before "="
           json_token = strtok(NULL, ",");
@@ -6160,11 +6165,14 @@ void loop() {
               if (p[2] == 'S' || p[2] == 'W') {
                 json_token = NULL; //  /JS command can't handle program id from URL. It allow JSON only.
               } else {
-                json_parameter = atof(json_token);
+				program prg = parsingStringToProgram(json_token);
+				tempDestAddr = prg.dest_addr;
+                json_parameter = prg.number;
               }
             }
-            if (tempDestAddr != tempDestAddrOnPrevIteration)
-              bus->setBusType(bus->getBusType(), bus->getBusAddr(), tempDestAddr);
+            if (tempDestAddr != tempDestAddrOnPrevIteration) {
+              set_temp_dest(tempDestAddr);
+            }
             if (output || json_token != NULL) {
               if (p[2] != 'K' && p[2] != 'W') {
                 int i_line=findLine(json_parameter,0,&cmd);
@@ -6309,8 +6317,11 @@ void loop() {
             tempDestAddrOnPrevIteration = tempDestAddr;
             json_parameter = -1;
           }
-          if (tempDestAddr != destAddr)
-            bus->setBusType(bus->getBusType(), bus->getBusAddr(), destAddr);
+          if (tempDestAddr != destAddr) {
+            set_def_dest(destAddr);
+            my_dev_fam = save_my_dev_fam;
+            my_dev_var = save_my_dev_var;
+          }
 #if defined(JSONCONFIG)
           bool needReboot = false;
           if (p[2]=='W') {
@@ -6892,6 +6903,14 @@ void loop() {
             uint8_t save_my_dev_var = my_dev_var;
             uint8_t destAddr = bus->getBusDest();
             if (range[0]=='K') {
+              char* token = strchr(range, '!');
+              if (token != NULL) {
+                token++;
+                if (token[0] > 0) {
+                  int d_addr = atoi(token);
+                  set_temp_dest(d_addr);
+                }
+              }
               uint8_t cat = atoi(&range[1]) * 2; // * 2 - two columns in ENUM_CAT_NR table
               if (cat >= sizeof(ENUM_CAT_NR)/sizeof(*ENUM_CAT_NR)) {  // set category to highest category if selected category is out of range
                 cat = (sizeof(ENUM_CAT_NR)/sizeof(*ENUM_CAT_NR))-2;
@@ -6928,7 +6947,7 @@ void loop() {
             }
             query(start,end,0);
             if (bus->getBusDest() != destAddr) {
-              bus->setBusType(bus->getBusType(), bus->getBusAddr(), destAddr);
+              set_def_dest(destAddr);
               my_dev_fam = save_my_dev_fam;
               my_dev_var = save_my_dev_var;
             }
