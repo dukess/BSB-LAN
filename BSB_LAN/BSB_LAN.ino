@@ -1267,14 +1267,14 @@ void printcantalloc(void) {
   printlnToDebug(PSTR("Can't alloc memory"));
 }
 
-void set_temp_destination(short destAddr){
+void set_temp_destination(int destAddr){
   printFmtToDebug(PSTR("Setting temporary destination to %d\r\n"), destAddr);
   bus->setBusType(bus->getBusType(), bus->getBusAddr(), destAddr);
   GetDevId();
 }
 
 
-void return_to_default_destination(int destAddr){
+void return_default_destination(int destAddr){
   printFmtToDebug(PSTR("Returning to default destination %d\r\n"), destAddr);
   bus->setBusType(bus->getBusType(), bus->getBusAddr(), destAddr);
 }
@@ -5651,7 +5651,7 @@ void loop() {
                 }
               }
               if (bus->getBusDest() != destAddr) {
-                return_to_default_destination(destAddr);
+                return_default_destination(destAddr);
                 my_dev_fam = save_my_dev_fam;
                 my_dev_var = save_my_dev_var;
               }
@@ -6517,7 +6517,7 @@ next_parameter:
             json_parameter = -1;
           }
           if (tempDestAddr != destAddr) {
-            return_to_default_destination(destAddr);
+            return_default_destination(destAddr);
             my_dev_fam = save_my_dev_fam;
             my_dev_var = save_my_dev_var;
           }
@@ -7156,7 +7156,7 @@ next_parameter:
             }
             query(start,end,0);
             if (bus->getBusDest() != destAddr) {
-              return_to_default_destination(destAddr);
+              return_default_destination(destAddr);
               my_dev_fam = save_my_dev_fam;
               my_dev_var = save_my_dev_var;
             }
@@ -7222,7 +7222,7 @@ next_parameter:
             } else {
               if (destAddr != d_addr) {
                 d_addr = destAddr;
-                return_to_default_destination(destAddr);
+                return_default_destination(destAddr);
                 my_dev_fam = save_my_dev_fam;
                 my_dev_var = save_my_dev_var;
               }
@@ -7231,7 +7231,7 @@ next_parameter:
           }
         }
         if (destAddr != d_addr) {
-          return_to_default_destination(destAddr);
+          return_default_destination(destAddr);
           my_dev_fam = save_my_dev_fam;
           my_dev_var = save_my_dev_var;
         }
@@ -7293,7 +7293,7 @@ next_parameter:
           } else {
             if (destAddr != d_addr) {
               d_addr = destAddr;
-              return_to_default_destination(destAddr);
+              return_default_destination(destAddr);
               my_dev_fam = save_my_dev_fam;
               my_dev_var = save_my_dev_var;
             }
@@ -7342,7 +7342,7 @@ next_parameter:
       if (dataFile) dataFile.close();
       lastLogTime = millis();
       if (destAddr != d_addr) {
-        return_to_default_destination(destAddr);
+        return_default_destination(destAddr);
         my_dev_fam = save_my_dev_fam;
         my_dev_var = save_my_dev_var;
       }
@@ -7377,7 +7377,7 @@ next_parameter:
           } else {
             if (destAddr != d_addr) {
               d_addr = destAddr;
-              return_to_default_destination(destAddr);
+              return_default_destination(destAddr);
               my_dev_fam = save_my_dev_fam;
               my_dev_var = save_my_dev_var;
             }
@@ -7397,7 +7397,7 @@ next_parameter:
         }
       }
       if (destAddr != d_addr) {
-        return_to_default_destination(destAddr);
+        return_default_destination(destAddr);
         my_dev_fam = save_my_dev_fam;
         my_dev_var = save_my_dev_var;
       }
