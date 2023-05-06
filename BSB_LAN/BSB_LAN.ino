@@ -3031,7 +3031,7 @@ void generateWebConfigPage(bool printOnly) {
        printFmtToWebClient(PSTR("<input type=text id='option_%d' name='option_%d' "), cfg.id + 1, cfg.id + 1);
        switch (cfg.var_type) {
          case CDT_MAC:
-           printToWebClient(PSTR("pattern='([0-9A-Fa-f]{2}[-:]){5}[0-9A-Fa-f]{2}'"));
+           printToWebClient(PSTR("pattern='((^|,)([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2}))*$'"));
            break;
          case CDT_IPV4:
            printToWebClient(PSTR("pattern='((^|\\.)(25[0-5]|2[0-4]\\d|[01]?\\d{1,2})){4}'"));
