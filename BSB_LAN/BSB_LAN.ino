@@ -2399,35 +2399,35 @@ void generateWebConfigPage(bool printOnly) {
 //Param Value
 
 //Open tag
-    if(!printOnly){
-      switch (cfg.input_type) {
-        case CPI_TEXT:
-        printFmtToWebClient("<input type=text id='option_%d' name='option_%d' ", cfg.id + 1, cfg.id + 1);
-        switch (cfg.var_type) {
-          case CDT_MAC:
-            printToWebClient("pattern='([0-9A-Fa-f]{2}[-:]){5}[0-9A-Fa-f]{2}'");
-            break;
-          case CDT_IPV4:
-            printToWebClient("pattern='((^|\\.)(25[0-5]|2[0-4]\\d|[01]?\\d{1,2})){4}'");
-            break;
-          case CDT_PROGNRLIST:
-            printToWebClient("pattern='((^|,)\\d{1,5}(\\.\\d)?((!|!-)\\d{1,3})?)+'");
-            break;
-          }
-        printToWebClient(" value='");
-        break;
-        case CPI_SWITCH:
-        case CPI_DROPDOWN:
-           printFmtToWebClient("<select id='option_%d' name='option_%d'>\r\n", cfg.id + 1, cfg.id + 1);
-        break;
-        case CPI_CHECKBOXES:
-           printFmtToWebClient("<div><input type=hidden id='option_%d' name='option_%d' value='%d'>\r\n", cfg.id + 1, cfg.id + 1, (int)variable[0]);
-        break;
-        default: break;
-      }
-    } else {
-      printFmtToWebClient("<output id='option_%d' name='option_%d'>\r\n", cfg.id + 1, cfg.id + 1);
-    }
+   if(!printOnly){
+     switch (cfg.input_type) {
+       case CPI_TEXT:
+       printFmtToWebClient(PSTR("<input type=text id='option_%d' name='option_%d' "), cfg.id + 1, cfg.id + 1);
+       switch (cfg.var_type) {
+         case CDT_MAC:
+           printToWebClient(PSTR("pattern='((^|,)([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2}))*$'"));
+           break;
+         case CDT_IPV4:
+           printToWebClient(PSTR("pattern='((^|\\.)(25[0-5]|2[0-4]\\d|[01]?\\d{1,2})){4}'"));
+           break;
+         case CDT_PROGNRLIST:
+           printToWebClient(PSTR("pattern='((^|,)\\d{1,5}(\\.\\d)?((!|!-)\\d{1,3})?)+'"));
+           break;
+         }
+       printToWebClient(PSTR(" value='"));
+       break;
+       case CPI_SWITCH:
+       case CPI_DROPDOWN:
+          printFmtToWebClient(PSTR("<select id='option_%d' name='option_%d'>\r\n"), cfg.id + 1, cfg.id + 1);
+       break;
+       case CPI_CHECKBOXES:
+          printFmtToWebClient(PSTR("<div><input type=hidden id='option_%d' name='option_%d' value='%d'>\r\n"), cfg.id + 1, cfg.id + 1, (int)variable[0]);
+       break;
+       default: break;
+     }
+   } else {
+     printFmtToWebClient(PSTR("<output id='option_%d' name='option_%d'>\r\n"), cfg.id + 1, cfg.id + 1);
+   }
 
 
     switch (cfg.var_type) {
