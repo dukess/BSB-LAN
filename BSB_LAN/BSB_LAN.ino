@@ -926,23 +926,23 @@ void set_temp_destination(int16_t destAddr){
     destAddr = dest_address;
   }
   if (destAddr != bus->getBusDest()) {
-    printFmtToDebug("Setting temporary destination to %d\r\n", destAddr);
+    printFmtToDebug(PSTR("Setting temporary destination to %d\r\n"), destAddr);
     bus->setBusType(bus->getBusType(), bus->getBusAddr(), destAddr);
     GetDevId();
   } else {
     if (debug_mode == DEVELOPER_DEBUG) {
-      printFmtToDebug("Bus destination already set to %d, no change necessary.\r\n", destAddr);
+      printFmtToDebug(PSTR("Bus destination already set to %d, no change necessary.\r\n"), destAddr);
     }
   }
 }
 
 void return_to_default_destination(int destAddr){
   if (destAddr != bus->getBusDest()) {
-    printFmtToDebug("Returning to default destination %d\r\n", destAddr);
+    printFmtToDebug(PSTR("Returning to default destination %d\r\n"), destAddr);
     bus->setBusType(bus->getBusType(), bus->getBusAddr(), destAddr);
   } else {
     if (debug_mode == DEVELOPER_DEBUG) {
-      printFmtToDebug("Bus destination already set to %d, no change necessary.\r\n", destAddr);
+      printFmtToDebug(PSTR("Bus destination already set to %d, no change necessary.\r\n"), destAddr);
     }
   }
 }
