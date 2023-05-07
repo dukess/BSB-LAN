@@ -7932,10 +7932,12 @@ void setup() {
 #endif
 #if defined(JSONCONFIG) || defined(WEBCONFIG)
   registerConfigVariable(CF_CONFIG_LEVEL, (byte *)&config_level);
-#if defined(BLE_SENSORS) && defined(ESP32)
+#endif
+#ifdef WEBCONFIG
+  #if defined(BLE_SENSORS) && defined(ESP32)
   registerConfigVariable(CF_ENABLE_BLE, (byte *)&EnableBLE);
   registerConfigVariable(CF_BLE_SENSORS_MACS, (byte *)BLE_sensors_macs);
-#endif
+  #endif
 #endif
 
   readFromEEPROM(CF_PPS_VALUES);
