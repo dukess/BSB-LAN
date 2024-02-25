@@ -833,11 +833,6 @@ static const int numLogValues = sizeof(log_parameters) / sizeof(log_parameters[0
 static const int numCustomFloats = sizeof(custom_floats) / sizeof(custom_floats[0]);
 static const int numCustomLongs = sizeof(custom_longs) / sizeof(custom_longs[0]);
 
-typedef struct {
-  float number;
-  int dest_addr;
-} parameter;
-
 #ifdef AVERAGES
 static const int numAverages = (sizeof(avg_parameters) / sizeof(avg_parameters[0]));
 float avgValues_Old[numAverages] = {0};
