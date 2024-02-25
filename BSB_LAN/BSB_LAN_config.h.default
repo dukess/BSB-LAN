@@ -61,7 +61,7 @@ char mDNS_hostname[32] = "BSB-LAN";
  * Use pool.ntp.org if your BSB-LAN installation can access the internet.
  * Otherwise you may also use your router's address if it can act as a NTP server.
  * The default timezone "CET-1CEST,M3.5.0,M10.5.0/3" covers most Central European countries (GMT+1) and takes care of daylight saving.
- * Use "EET-2EEST,M3.5.0/3,M10.5.0/4" for Eastern European countries (GMT+2), or 
+ * Use "EET-2EEST,M3.5.0/3,M10.5.0/4" for Eastern European countries (GMT+2), or
  * use "WET0WEST,M3.5.0/1,M10.5.0" for Western European countries (GMT+0).
  * See here for a full list of timezones for places all over the world:
  * https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
