@@ -3888,42 +3888,8 @@ void queryVirtualPrognr(float line, int table_line) {
     }
     case 9: {
 #if defined(BLE_SENSORS) && defined(ESP32)
-      size_t log_sensor = (int)roundf(line - BSP_BLE);
-      uint8_t selector = ((int)roundf((line - BSP_BLE) * 10)) % 10;
-      if(!BLESensors_statusIsCorrect(log_sensor) && selector != 0) selector = 5; //Sensor timeout
-      switch (selector) {
-        case 0: bin2hex(decodedTelegram.value, ((byte *)BLE_sensors_macs) + log_sensor * sizeof(mac), sizeof(mac), ':'); break;
-        case 1: _printFIXPOINT(decodedTelegram.value, BLESensors_readTemp(log_sensor), 2); break;
-        case 2: _printFIXPOINT(decodedTelegram.value, BLESensors_readHumidity(log_sensor), 2); break;
-        case 3: decodedTelegram.error = 261; undefinedValueToBuffer(decodedTelegram.value); break; //_printFIXPOINT(decodedTelegram.value, BLESensors_readPressure(log_sensor), 2); break;
-        case 4: _printFIXPOINT(decodedTelegram.value, BLESensors_readVbat(log_sensor), 3); break;
-        case 5: decodedTelegram.error = 261; undefinedValueToBuffer(decodedTelegram.value); break;
-      }
-      return;
-#endif
-      break;
-    }
-    case 9: {
-#if defined(BLE_SENSORS) && defined(ESP32)
-      size_t log_sensor = (int)roundf(line - BSP_BLE);
-      uint8_t selector = ((int)roundf((line - BSP_BLE) * 10)) % 10;
-      if(!BLESensors_statusIsCorrect(log_sensor) && selector != 0) selector = 5; //Sensor timeout
-      switch (selector) {
-        case 0: bin2hex(decodedTelegram.value, ((byte *)BLE_sensors_macs) + log_sensor * sizeof(mac), sizeof(mac), ':'); break;
-        case 1: _printFIXPOINT(decodedTelegram.value, BLESensors_readTemp(log_sensor), 2); break;
-        case 2: _printFIXPOINT(decodedTelegram.value, BLESensors_readHumidity(log_sensor), 2); break;
-        case 3: decodedTelegram.error = 261; undefinedValueToBuffer(decodedTelegram.value); break; //_printFIXPOINT(decodedTelegram.value, BLESensors_readPressure(log_sensor), 2); break;
-        case 4: _printFIXPOINT(decodedTelegram.value, BLESensors_readVbat(log_sensor), 3); break;
-        case 5: decodedTelegram.error = 261; undefinedValueToBuffer(decodedTelegram.value); break;
-      }
-      return;
-#endif
-      break;
-    }
-    case 9: {
-#if defined(BLE_SENSORS) && defined(ESP32)
-      size_t log_sensor = (int)roundf(line - BSP_BLE);
-      uint8_t selector = ((int)roundf((line - BSP_BLE) * 10)) % 10;
+      size_t log_sensor = (int)roundf(line - (float)BSP_BLE);
+      uint8_t selector = ((int)roundf((line - (float)BSP_BLE) * 10)) % 10;
       if(!BLESensors_statusIsCorrect(log_sensor) && selector != 0) selector = 5; //Sensor timeout
       switch (selector) {
         case 0: bin2hex(decodedTelegram.value, ((byte *)BLE_sensors_macs) + log_sensor * sizeof(mac), sizeof(mac), ':'); break;
