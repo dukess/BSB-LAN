@@ -1949,6 +1949,14 @@ void generateConfigPage(void) {
   #endif
   "BLE_SENSORS"
   #endif
+  #if defined(BLE_SENSORS) && defined(ESP32)
+  #if defined (ANY_MODULE_COMPILED)
+  ", "
+  #else
+  #define ANY_MODULE_COMPILED
+  #endif
+  "BLE_SENSORS"
+  #endif
 
   #if !defined (ANY_MODULE_COMPILED)
   "NONE"
@@ -3876,6 +3884,23 @@ void queryVirtualPrognr(float line, int table_line) {
         case 6: decodedTelegram.error = 261; undefinedValueToBuffer(decodedTelegram.value); break;
       }
       return;
+      break;
+    }
+    case 9: {
+#if defined(BLE_SENSORS) && defined(ESP32)
+      size_t log_sensor = (int)roundf(line - BSP_BLE);
+      uint8_t selector = ((int)roundf((line - BSP_BLE) * 10)) % 10;
+      if(!BLESensors_statusIsCorrect(log_sensor) && selector != 0) selector = 5; //Sensor timeout
+      switch (selector) {
+        case 0: bin2hex(decodedTelegram.value, ((byte *)BLE_sensors_macs) + log_sensor * sizeof(mac), sizeof(mac), ':'); break;
+        case 1: _printFIXPOINT(decodedTelegram.value, BLESensors_readTemp(log_sensor), 2); break;
+        case 2: _printFIXPOINT(decodedTelegram.value, BLESensors_readHumidity(log_sensor), 2); break;
+        case 3: decodedTelegram.error = 261; undefinedValueToBuffer(decodedTelegram.value); break; //_printFIXPOINT(decodedTelegram.value, BLESensors_readPressure(log_sensor), 2); break;
+        case 4: _printFIXPOINT(decodedTelegram.value, BLESensors_readVbat(log_sensor), 3); break;
+        case 5: decodedTelegram.error = 261; undefinedValueToBuffer(decodedTelegram.value); break;
+      }
+      return;
+#endif
       break;
     }
     case 9: {
@@ -7489,6 +7514,12 @@ active_cmdtbl_size = sizeof(cmdtbl)/sizeof(cmdtbl[0]);
 #if defined(BLE_SENSORS) && defined(ESP32)
   registerConfigVariable(CF_ENABLE_BLE, (byte *)&EnableBLE);
   registerConfigVariable(CF_BLE_SENSORS_MACS, (byte *)BLE_sensors_macs);
+#endif
+#ifdef WEBCONFIG
+  #if defined(BLE_SENSORS) && defined(ESP32)
+  registerConfigVariable(CF_ENABLE_BLE, (byte *)&EnableBLE);
+  registerConfigVariable(CF_BLE_SENSORS_MACS, (byte *)BLE_sensors_macs);
+  #endif
 #endif
 
   readFromEEPROM(CF_PPS_VALUES);
